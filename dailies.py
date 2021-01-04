@@ -19,6 +19,8 @@ import json
 import os
 import sys
 
+from dotenv import load_dotenv
+load_dotenv()
 BOT_ID = os.getenv("DISCORD_TOKEN")
 
 # Switched to Ints to comply with new Discord.py conventions for IDs
