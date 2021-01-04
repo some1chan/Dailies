@@ -70,7 +70,7 @@ async def on_ready():
     # -[
     found_update_user = False
 
-    version = "1.53"
+    version = "1.54"
     for s in streakers:
         if (s.name == version):
             found_update_user = True
