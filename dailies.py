@@ -401,15 +401,15 @@ async def streaks(ctx, extra = None):
         user = await bot.fetch_user(ctx.message.author.id)
         embed.set_author(name = user.display_name, icon_url=user.avatar_url)
 
-        # If the user's name has not been added to the class (Done to make compatible with pre 6/3/2020 data backups)
-        # Now used to update names in the list to adapt to user nickname changes
-        #--if not s.name:
-        if len(user.display_name.split()) > 1:
-            s.name = user.display_name.title()
-        else:
-            s.name = user.display_name
-
         if (streakUser):
+            # If the user's name has not been added to the class (Done to make compatible with pre 6/3/2020 data backups)
+            # Now used to update names in the list to adapt to user nickname changes
+            #--if not s.name:
+            if len(user.display_name.split()) > 1:
+                s.name = user.display_name.title()
+            else:
+                s.name = user.display_name
+
             embed.title="Challenge Mode" if not streakUser.casual else "Casual Mode"
             if (not streakUser.casual):
                 # Uhg, this mess
