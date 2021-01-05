@@ -24,14 +24,16 @@ load_dotenv()
 BOT_ID = os.getenv("DISCORD_TOKEN")
 
 # Switched to Ints to comply with new Discord.py conventions for IDs
-DAILY_CHANNEL_ID = 692939668160774204
-DDISC_CHANNEL_ID = 697203526530760764
-SPAM_CHANNEL_ID  = 758036106364321792
-STREAKER_NOTIFY_ID = 761514004723662849
+DAILY_CHANNEL_ID = int(os.getenv("DAILY_CHANNEL_ID"))
+DDISC_CHANNEL_ID = int(os.getenv("DDISC_CHANNEL_ID"))
+SPAM_CHANNEL_ID  = int(os.getenv("SPAM_CHANNEL_ID"))
+STREAKER_NOTIFY_ID = int(os.getenv("STREAKER_NOTIFY_ID"))
+
+API_HOST = os.getenv("API_HOST", "http://localhost:42069")
 
 API = {
-    "getURL": "http://localhost:42069/api/v0/discord/embedtemplate",
-    "postURL": "http://localhost:42069/api/v0/dailies/version"
+    "getURL": API_HOST + "/api/v0/discord/embedtemplate",
+    "postURL": API_HOST + "/api/v0/dailies/version"
 }
 
 class Streaker:
