@@ -16,7 +16,7 @@ on:
 env:
   # TODO: Change variable to your image's name.
   IMAGE_NAME: dailies
-  USER_NAME: gmanicus
+  USER_NAME: ${{ github.repository_owner }}
 
 jobs:
   # Run tests.
