@@ -1,4 +1,4 @@
-# Dailies bot by Grant Scrits
+# Dailies bot by Grant Scrits 
 #        @GeekOverdriveUS
 
 import discord
