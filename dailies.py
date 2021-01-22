@@ -19,15 +19,18 @@ import json
 import os
 import sys
 
-from dotenv import load_dotenv
-load_dotenv()
-BOT_ID = os.getenv("DISCORD_TOKEN")
+def getEnvironment():
+    # Put in getEnvironment() to enable testing on my end
+    # I could not get dotenv to work. It fails to recognize when importing. I'm guessing this has something to do with not being in a VIM
+    from dotenv import load_dotenv
+    load_dotenv()
+    BOT_ID = os.getenv("DISCORD_TOKEN")
 
-# Switched to Ints to comply with new Discord.py conventions for IDs
-DAILY_CHANNEL_ID = int(os.getenv("DAILY_CHANNEL_ID"))
-DDISC_CHANNEL_ID = int(os.getenv("DDISC_CHANNEL_ID"))
-SPAM_CHANNEL_ID  = int(os.getenv("SPAM_CHANNEL_ID"))
-STREAKER_NOTIFY_ID = int(os.getenv("STREAKER_NOTIFY_ID"))
+    # Switched to Ints to comply with new Discord.py conventions for IDs
+    DAILY_CHANNEL_ID = int(os.getenv("DAILY_CHANNEL_ID"))
+    DDISC_CHANNEL_ID = int(os.getenv("DDISC_CHANNEL_ID"))
+    SPAM_CHANNEL_ID  = int(os.getenv("SPAM_CHANNEL_ID"))
+    STREAKER_NOTIFY_ID = int(os.getenv("STREAKER_NOTIFY_ID"))
 
 API_HOST = os.getenv("API_HOST", "http://localhost:42069")
 
@@ -74,23 +77,20 @@ async def on_ready():
     # -[
     found_update_user = False
 
-    version = "1.54"
+    version = "1.6"
     for s in streakers:
         if (s.name == version):
             found_update_user = True
 
-    # COMMENTED OUT FOR API UPDATE
+    if (not found_update_user):
+        await bot.get_channel(DAILY_CHANNEL_ID).send("""
+:vertical_traffic_light: :yawning_face: ... Oh hey everybody! I've got an update for ya!
 
-#     if (not found_update_user):
-#         await bot.get_channel(DAILY_CHANNEL_ID).send("""
-# :vertical_traffic_light: Hey peeps! Streak Whip-Master Pete here. Here's a tiny update for everybody. Also, happy late Thanksgiving for those of you who celebrate it!
-
-# - :bug: The streak highscores and all-time values resetting should be fixed now!
-# - :sparkles: Improved the embeds. They should always post now, regardless of their length. They also no longer have that blank space where the title used to be.
-# <@200340393596944384> Hah! Gotcha this time. :clap:
-# """)
-#         streakers.append(Streaker(1, version, streak=0))
-#         backup()
+- :tools: The embeds should *always* post now. The milestone embed system was massively improved, so that should make its integrity is much better
+- :pencil: Mercy Days are now soft-maxed at 30 days. Your mercy days will not increase beyond 30 days, but if you have more than that right now, the extra won't be taken away
+""")
+        streakers.append(Streaker(1, version, streak=0))
+        backup()
 
     #-]
 
@@ -126,18 +126,33 @@ async def processDay(message, dayTest = False):
 
     if (datetime.utcnow().day != lastDay or dayTest):
         newDay = True
-        lastDay = datetime.utcnow().day
-        # If yesterday's week is not the same as today's week...
-        if ( (datetime.utcnow() - timedelta(1)).isocalendar()[1] != datetime.utcnow().isocalendar()[1] ): newWeek = True
-        # If yesterday's motnh is not the same as today's month...
-        if ( (datetime.utcnow() - timedelta(1)).month != datetime.utcnow().month ): newMonth = True
+        if not dayTest:
+            lastDay = datetime.utcnow().day
+            # If yesterday's week is not the same as today's week...
+            if ( (datetime.utcnow() - timedelta(1)).isocalendar()[1] != datetime.utcnow().isocalendar()[1] ): newWeek = True
+            # If yesterday's month is not the same as today's month...
+            if ( (datetime.utcnow() - timedelta(1)).month != datetime.utcnow().month ): newMonth = True
+        else:
+            newMonth = True
+            newWeek = True
         await bot.get_channel(DAILY_CHANNEL_ID).send(":vertical_traffic_light: `A new streak day has started ( Time in UTC is: {0} )` <@&{1}>".format(datetime.utcnow(), STREAKER_NOTIFY_ID))
 
     if (message.channel.id == DAILY_CHANNEL_ID):
         streaker = True
 
     for s in streakers:
+        # specialMilestone is to tell us if we set our milestone as a loss or mercy
+        specialMilestone = False
         if newDay:
+
+            # If this streaker has a null name field, populate it with their username
+            if (not s.name):
+                info = await bot.fetch_user(s.id)
+                if len(info.display_name.split()) > 1:
+                    name = info.display_name.title()
+                else:
+                    s.name = info.display_name
+
             # if the time since this streaker's last post is more than one day
             if dayDifferenceNow(s.lastPostTime) > 1 and s.streak != 0:
                 if (not s.casual):
@@ -145,8 +160,9 @@ async def processDay(message, dayTest = False):
                     if (s.id == message.author.id and message.channel.id == DAILY_CHANNEL_ID): 
                         s.lastPostTime = datetime.utcnow() - timedelta(hours = 1)
                     
+                    specialMilestone = True
                     if (s.mercies == 0):
-                        streaksEnded[s] = s.streak
+                        streakMilestones[s] = 0
                         s.lastPostTime = None
                     else:
                         streakMilestones[s] = 5
@@ -178,22 +194,14 @@ async def processDay(message, dayTest = False):
                 # Assemble the list of streak milestones
                 # Each milestone is given a value of 1 through 5
                 # This groups the milestones together by length of time/mercy day/casual mode instead of streak total
-                if (s.streak == 1):
-                    streakMilestones[s] = 1
                 if (s.streak % 30 == 0):
                     await message.add_reaction('🔥')
-                    streakMilestones[s] = 4
-                    s.mercies += 1; backup()
+                    if (s.mercies < 30): s.mercies += 1; backup()
                 elif (s.streak % 7 == 0):
                     await message.add_reaction('🔱')
-                    streakMilestones[s] = 3
-                        #await bot.get_channel(__CHANNEL__).send(bot.get_channel(DDISC_CHANNEL_ID), ":trident: `{0} has achieved a streak of {1} WEEK!`".format(info.display_name, s.streak // 7))
-                        #await bot.get_channel(__CHANNEL__).send(bot.get_channel(DDISC_CHANNEL_ID), ":trident: `{0} has achieved a streak of {1} WEEKS!`".format(info.display_name, s.streak // 7))
                 elif (s.streak % 3 == 0):
                     await message.add_reaction('⚜️')
-                    streakMilestones[s] = 2
-                    s.mercies += 1; backup()
-                    #await bot.get_channel(__CHANNEL__).send(bot.get_channel(DDISC_CHANNEL_ID), ":fleur_de_lis: `{0} has achieved a streak of {1} DAYS!`".format(info.display_name, s.streak))
+                    if (s.mercies < 30): s.mercies += 1; backup()
                 else:
                     await message.add_reaction('❤️')
             else:
@@ -213,135 +221,41 @@ async def processDay(message, dayTest = False):
                 else:
                     await message.add_reaction('🔥')
 
-        # Assemble the list of casual milestones
-        # Each milestone is given a value of 11 through 13
-        if (s.casual):
-            if newWeek and not newMonth:
-                if s.weekStreak < 3:
-                    #print("Added milestone")
-                    streakMilestones[s] = 11
-                elif s.weekStreak < 5:
-                    streakMilestones[s] = 12
-                else:
-                    streakMilestones[s] = 13
-            elif newMonth:
-                if s.streak < 10:
-                    streakMilestones[s] = 11
-                elif s.streak < 20:
-                    streakMilestones[s] = 12
-                else:
-                    streakMilestones[s] = 13
-
+        if newDay:
+            # Assemble the list of challenge milestones
+            # Each milestone is given a value of 1 through 4
+            if not s.casual:
+                # If not a casual streaker, our streak isn't 0, and our milestone isn't a loss or mercy (specialMilestone)...
+                if (s.streak != 0 and not specialMilestone):
+                    if (s.streak == 1):
+                        streakMilestones[s] = 1
+                    elif (s.streak % 30 == 0):
+                        streakMilestones[s] = 4
+                    elif (s.streak % 7 == 0):
+                        streakMilestones[s] = 3
+                    elif (s.streak % 3 == 0):
+                        streakMilestones[s] = 2
+            # Assemble the list of casual milestones
+            # Each milestone is given a value of 11 through 13
+            else:
+                if newWeek and not newMonth:
+                    if s.weekStreak < 3:
+                        #print("Added milestone")
+                        streakMilestones[s] = 11
+                    elif s.weekStreak < 5:
+                        streakMilestones[s] = 12
+                    else:
+                        streakMilestones[s] = 13
+                elif newMonth:
+                    if s.streak < 10:
+                        streakMilestones[s] = 11
+                    elif s.streak < 20:
+                        streakMilestones[s] = 12
+                    else:
+                        streakMilestones[s] = 13
 
     if newDay:
-        embeds = []
-        today = datetime.utcnow().date()
-        end_of_day = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()) + timedelta(1)
-
-        filthyCasuals = False
-
-        # Sort milestones by length in descending order
-        # Assemble the milestone string with fields of "{name} has a streak of {x}"
-        if (len(streakMilestones) != 0):
-            milestoneString = [""]
-            casualMilestoneString = [""]
-            mx = 0; cmx = 0 # set string list indexes
-            streakMilesSorted = sorted(streakMilestones.items(), key=lambda x: x[1], reverse=True)
-            for s in streakMilesSorted:
-                # If the string is not small enough to fit in an embed
-                if len(milestoneString[mx]) > 900:
-                    mx += 1
-                    milestoneString.append("")
-                # If this milestone group is a challenger group
-                if s[1] < 10:
-                    if (s[1] == 5):
-                        milestoneString[mx] += "\n:revolving_hearts: `{0}'s streak of` **{1} DAYS** `was saved by a Mercy Day!`".format(s[0].name, s[0].streak)
-                    if (s[1] == 1):
-                        milestoneString[mx] += "\n:beginner: `{} has started a new streak!`".format(s[0].name)
-                    elif (s[1] == 4):
-                        amazingMilestone = True
-                        if (s[0].streak == 30):
-                            milestoneString[mx] += "\n:fire: `{0} has achieved a streak of` **{1} MONTH!!**".format(s[0].name, s[0].streak // 30)
-                        else:
-                            milestoneString[mx] += "\n:fire: `{0} has achieved a streak of` **{1} MONTHS!!!!**".format(s[0].name, s[0].streak // 30)
-                    elif (s[1] == 3):
-                        if (s[0].streak == 7):
-                            milestoneString[mx] += "\n:trident: `{0} has achieved a streak of` **{1} WEEK!**".format(s[0].name, s[0].streak // 7)
-                        else:
-                            milestoneString[mx] += "\n:trident: `{0} has achieved a streak of` **{1} WEEKS!**".format(s[0].name, s[0].streak // 7)
-                    elif (s[1] == 2):
-                        milestoneString[mx] += "\n:fleur_de_lis: `{0} has achieved a streak of` **{1} DAYS!**".format(s[0].name, s[0].streak)
-                # If this milestone group is a casual group
-                else:
-                    filthyCasuals = True
-                    # If the string is not small enough to fit in an embed
-                    if len(casualMilestoneString[cmx]) > 900:
-                        cmx += 1
-                        casualMilestoneString.append("")
-                    # If we are alerting for the casual 'month' category...
-                    if (newMonth):
-                        if (s[1] == 12):
-                            casualMilestoneString[cmx] += "\n:trident: `{0} achieved a streak of` **{1} DAYS** `this month.`".format(s[0].name, s[0].streak)
-                        elif (s[1] == 13):
-                            casualMilestoneString[cmx] += "\n:fire: `{0} achieved a streak of` **{1} DAYS** `this month.`".format(s[0].name, s[0].streak)
-                        elif (s[0].streak > 1):
-                            casualMilestoneString[cmx] += "\n:fleur_de_lis: `{0} achieved a streak of` **{1} DAYS** `this month.`".format(s[0].name, s[0].streak)
-                        elif (s[0].streak != 0):
-                            casualMilestoneString[cmx] += "\n:fleur_de_lis: `{0} achieved a streak of` **{1} DAY** `this month.`".format(s[0].name, s[0].streak)
-                        # Reset casual streaks
-                        s[0].streak = 0
-                        s[0].weekStreak = 0
-                    # If we are alerting for the casual 'week' category...
-                    else:
-                        if (s[1] == 12):
-                            casualMilestoneString[cmx] += "\n:trident: `{0} achieved a streak of` **{1} DAYS** `this week.`".format(s[0].name, s[0].weekStreak)
-                        elif (s[1] == 13):
-                            casualMilestoneString[cmx] += "\n:fire: `{0} achieved a streak of` **{1} DAYS** `this week.`".format(s[0].name, s[0].weekStreak)
-                        elif (s[0].weekStreak > 1):
-                            casualMilestoneString[cmx] += "\n:fleur_de_lis: `{0} achieved a streak of` **{1} DAYS** `this week.`".format(s[0].name, s[0].weekStreak)
-                        elif (s[0].weekStreak != 0):
-                            casualMilestoneString[cmx] += "\n:fleur_de_lis: `{0} achieved a streak of` **{1} DAY** `this week.`".format(s[0].name, s[0].weekStreak)
-                        # Reset casual week streaks
-                        s[0].weekStreak = 0
-
-            if milestoneString[0] == "": milestoneString[0] = "none"
-            if casualMilestoneString[0] == "": casualMilestoneString[0] = "none"
-            for xx in range(len(milestoneString)):
-                embeds.append(discord.Embed(color=getEmbedData()["color"]))
-                embeds[xx].timestamp = end_of_day
-                embeds[xx].add_field(name="Milestones", value=milestoneString[xx], inline=False)
-            if filthyCasuals:
-                for xxx in range(len(casualMilestoneString)):
-                    embeds.append(discord.Embed(color=getEmbedData()["color"]))
-                    embeds[xxx].timestamp = end_of_day
-                    embeds[xxx].add_field(name="Casual Milestones", value=casualMilestoneString[xxx], inline=False)
-
-        if (len(streaksEnded) != 0):
-            alertString = ""
-            streaksEndedSorted = sorted(streaksEnded.items(), key=lambda x: x[1], reverse=True)
-            for s in streaksEndedSorted:
-                if (s[0].streak > 1):
-                    alertString += "\n:100: `{0} achieved a streak of` **{1} DAYS**".format(s[0].name, s[0].streak)
-                else:
-                    alertString += "\n:100: `{0} achieved a streak of` **{1} DAY**".format(s[0].name, s[0].streak)
-                # Reset challenger streak
-                s[0].streak = 0
-
-            embeds[len(embeds)-1].add_field(name="Losses", value=alertString, inline=False)
-
-        streakMilestones = {}
-        
-        if (not amazingMilestone):
-            for e in embeds:
-                await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
-        else:
-            first = True
-            for e in embeds:
-                if first:
-                    first = False
-                    await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e, file=discord.File('assets/amazingStreak.gif'))
-                else:
-                    await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
+        await sendMilestones(streakMilestones, newMonth)
 
     if (streaker and newStreaker):
         #print("streaker added")
@@ -355,6 +269,151 @@ async def processDay(message, dayTest = False):
 
         streakers.append(Streaker(message.author.id, name)); backup()
         await bot.get_channel(DDISC_CHANNEL_ID).send(":white_check_mark: `{} has started their first streak!`".format(name))
+
+
+async def sendMilestones(milestones, newMonth):
+    print("\nSending Milestones...")
+    embeds = []
+    today = datetime.utcnow().date()
+    end_of_day = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()) + timedelta(1)
+
+    challengeAlerts = []
+    casualAlerts = []
+    lossAlerts = []
+    amazingMilestone = False
+    if (len(milestones) != 0):
+        milestonesSorted = sorted(milestones.items(), key=lambda x: x[1], reverse=True)
+        emote = ":heart:"
+        milestone = ""
+        milestonePeriod = "DAY"
+        for s in milestonesSorted:
+            casual = False
+            if (s[1] > 10): casual = True
+
+            if (s[1] == 5):
+                emote = ":revolving_hearts:"
+                milestone = s[0].streak
+                milestonePeriod = "DAY"
+            elif (s[1] == 0):
+                emote = ":100:"
+                milestone = int(s[0].streak)
+                milestonePeriod = "DAY"
+                s[0].streak = 0 # reset streak
+            if (s[1] == 1):
+                emote = ":beginner:"
+                milestone = s[0].streak
+            elif (s[1] == 4):
+                emote = ":fire:"
+                milestone = s[0].streak // 30
+                milestonePeriod = "MONTH"
+                amazingMilestone = True
+            elif (s[1] == 3):
+                emote = ":trident:"
+                milestone = s[0].streak // 7
+                milestonePeriod = "WEEK"
+            elif (s[1] == 2):
+                emote = ":fleur_de_lis:"
+                milestone = s[0].streak
+                milestonePeriod = "DAY"
+            elif (s[1] == 13):
+                emote = ":fire:"
+                milestone = s[0].streak
+                milestonePeriod = "DAY"
+            elif (s[1] == 12):
+                emote = ":trident:"
+                milestone = s[0].streak
+                milestonePeriod = "DAY"
+            elif (s[0].streak > 0):
+                emote = ":fleur_de_lis:"
+                milestone = s[0].streak
+                milestonePeriod = "DAY"
+            
+            # Make period plural if milestone is more than one
+            milestonePeriod += "S" if milestone != 1 else ""
+            if (s[1] > 1 and s[1] != 5 and not casual):
+                challengeAlerts.append("\n{0} `{1} has achieved a streak of` **{2} {3}**".format(emote, s[0].name, milestone, milestonePeriod))
+            elif (s[1] == 0):
+                lossAlerts.append("\n{0} `{1} achieved a streak of` **{2} {3}**".format(emote, s[0].name, milestone, milestonePeriod))
+            elif (s[1] == 1):
+                challengeAlerts.append("\n{0} `{1} has started a new streak!`".format(emote, s[0].name))
+            elif (s[1] == 5):
+                challengeAlerts.append("\n{0} `{1}'s streak of` **{2} {3}** `was saved by a Mercy Day!`".format(emote, s[0].name, milestone, milestonePeriod))
+            elif casual:
+                casualAlerts.append("\n{0} `{1} achieved a streak of` **{2} {3}** `this {4}`".format(emote, s[0].name, milestone, milestonePeriod, "MONTH" if newMonth else "WEEK"))
+        
+        fields = []
+        thisField = -1
+
+        if (len(challengeAlerts) > 0):
+            fields.append({
+                "name": "Milestones",
+                "value": ""
+            })
+            thisField += 1
+            for line in challengeAlerts:
+                fields[thisField]["value"] += line
+                if len(fields[thisField]["value"]) > 900:
+                    fields.append({
+                        "name": "Milestones",
+                        "value": ""
+                    })
+                    thisField += 1
+        else: print("No Milestones")
+
+        if (len(casualAlerts) > 0):
+            fields.append({
+                "name": "Casual Milestones",
+                "value": ""
+            })
+            thisField += 1
+            for line in casualAlerts:
+                fields[thisField]["value"] += line
+                if len(fields[thisField]["value"]) > 900:
+                    fields.append({
+                        "name": "Casual Milestones",
+                        "value": ""
+                    })
+                    thisField += 1
+        else: print("No Casual Milestones")
+
+        if (len(lossAlerts) > 0):
+            fields.append({
+                "name": "Losses",
+                "value": ""
+            })
+            thisField += 1
+            for line in lossAlerts:
+                fields[thisField]["value"] += line
+                if len(fields[thisField]["value"]) > 900:
+                    fields.append({
+                        "name": "Losses",
+                        "value": ""
+                    })
+                    thisField += 1
+        else: print("No Losses")
+
+        embedCharacterLength = 0
+        thisEmbed = 0
+        # If we have any alerts, checked by seeing that we incremented thisField
+        if (thisField > -1):
+            embeds.append(discord.Embed(color=getEmbedData()["color"]))
+            embeds[thisEmbed].timestamp = end_of_day
+
+            for field in fields:
+                embeds[thisEmbed].add_field(name=field["name"], value=field["value"], inline=False)
+                embedCharacterLength += len(field["value"])
+                if (embedCharacterLength > 5000):
+                    embedCharacterLength = 0
+                    thisEmbed += 1
+                    embeds.append(discord.Embed(color=getEmbedData()["color"]))
+                    embeds[thisEmbed].timestamp = end_of_day
+        
+        if (not amazingMilestone):
+            await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
+        for e in embeds:
+            await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
+    else:
+        print("...no milestones to send\n")
 
 #
 #
@@ -705,6 +764,8 @@ async def bumpstreak(ctx, user = None, setToToday = None):
         s = getStreaker(user)
         if (not setToToday):
             s.lastPostTime = datetime.utcnow() - timedelta(1)
+        elif (setToToday.isdigit()):
+            s.lastPostTime = (datetime.utcnow() - timedelta(int(setToToday)))
         else:
             s.lastPostTime = datetime.utcnow()
         s.streak = s.streak + 1; backup()
@@ -721,7 +782,7 @@ async def bumpstreak(ctx, user = None, setToToday = None):
     if (not setToToday):
         await ctx.send(":white_check_mark: `{0}'s streak has been bumped to {1} {2}. Their lastPostTime has been set to yesterday`".format(user.name, s.streak, time_text))
     else:
-        await ctx.send(":white_check_mark: `{0}'s streak has been bumped to {1} {2}`".format(user.name, s.streak, time_text))
+        await ctx.send(":white_check_mark: `{0}'s streak has been bumped to {1} {2}. Their lastPostTime has been set to {3} days ago`".format(user.name, newStreak, time_text, int(setToToday)))
 
 @bot.command(hidden=True)
 async def checkday(ctx):
@@ -943,13 +1004,16 @@ async def on_command_error(ctx, error):
 if __name__ == "__main__":
     # If we don't have any arguments to process
     if (len(sys.argv) == 1):
+        getEnvironment()
         main()
     else: # Load up the test IDs
-        with open("data/testServer.json", "r") as testServer:
+        with open("data/test_server.json", "r") as testServer:
             jsonData = json.load(testServer)
 
             DAILY_CHANNEL_ID = jsonData["DCID"]
             DDISC_CHANNEL_ID = jsonData["DDCID"]
             SPAM_CHANNEL_ID  = jsonData["SCID"]
             STREAKER_NOTIFY_ID = jsonData["SRID"]
+        with open("data/token", "r") as token:
+            BOT_ID = token.readline()
         main()
