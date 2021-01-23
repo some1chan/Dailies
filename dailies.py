@@ -19,18 +19,15 @@ import json
 import os
 import sys
 
-def getEnvironment():
-    # Put in getEnvironment() to enable testing on my end
-    # I could not get dotenv to work. It fails to recognize when importing. I'm guessing this has something to do with not being in a VIM
-    from dotenv import load_dotenv
-    load_dotenv()
-    BOT_ID = os.getenv("DISCORD_TOKEN")
+from dotenv import load_dotenv
+load_dotenv()
+BOT_ID = os.getenv("DISCORD_TOKEN")
 
-    # Switched to Ints to comply with new Discord.py conventions for IDs
-    DAILY_CHANNEL_ID = int(os.getenv("DAILY_CHANNEL_ID"))
-    DDISC_CHANNEL_ID = int(os.getenv("DDISC_CHANNEL_ID"))
-    SPAM_CHANNEL_ID  = int(os.getenv("SPAM_CHANNEL_ID"))
-    STREAKER_NOTIFY_ID = int(os.getenv("STREAKER_NOTIFY_ID"))
+# Switched to Ints to comply with new Discord.py conventions for IDs
+DAILY_CHANNEL_ID = int(os.getenv("DAILY_CHANNEL_ID"))
+DDISC_CHANNEL_ID = int(os.getenv("DDISC_CHANNEL_ID"))
+SPAM_CHANNEL_ID  = int(os.getenv("SPAM_CHANNEL_ID"))
+STREAKER_NOTIFY_ID = int(os.getenv("STREAKER_NOTIFY_ID"))
 
 API_HOST = os.getenv("API_HOST", "http://localhost:42069")
 
@@ -40,7 +37,7 @@ API = {
 }
 
 class Streaker:
-  def __init__(self, id, name=None, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False):
+  def __init__(self, id, name=None, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False, lowMercyWarn = True):
     self.id = id
     self.name = name
     if (lpt): self.lastPostTime = lpt
@@ -51,6 +48,7 @@ class Streaker:
     self.streakAllTime = streakAllTime
     self.mercies = mercies
     self.casual = casual # Parry this you filthy casual
+    self.lowMercyWarn = lowMercyWarn
 
 streakers = []
 streakMilestones = {}
@@ -170,8 +168,9 @@ async def processDay(message, dayTest = False):
 
                         if (s.mercies < 2):
                             try:
-                                user = await bot.fetch_user(s.id)
-                                await user.send("Your streak is going to expire in **{0} {2}**. You have **{1} Mercy Days** left!\nMake sure to post something in #daily-challenge before then.".format(s.mercies + 1, s.mercies, "Days" if (s.mercies + 1 > 1) else "Day"))
+                                if (s.lowMercyWarn):
+                                    user = await bot.fetch_user(s.id)
+                                    await user.send("Your streak is going to expire in **{0} {2}**. You have **{1} Mercy Days** left!\nMake sure to post something in `#daily-challenge` before then.\n\nUse `!toggleWarnings` to turn this notification off.".format(s.mercies + 1, s.mercies, "Days" if (s.mercies + 1 > 1) else "Day"))
                             except Exception as e:
                                 print("\n{} COULDN'T BE MESSAGED! THEIR STREAK IS ABOUT TO EXPIRE!!!\n".format(s.name))
 
@@ -299,7 +298,7 @@ async def sendMilestones(milestones, newMonth):
                 milestone = int(s[0].streak)
                 milestonePeriod = "DAY"
                 s[0].streak = 0 # reset streak
-            if (s[1] == 1):
+            elif (s[1] == 1):
                 emote = ":beginner:"
                 milestone = s[0].streak
             elif (s[1] == 4):
@@ -396,7 +395,9 @@ async def sendMilestones(milestones, newMonth):
         thisEmbed = 0
         # If we have any alerts, checked by seeing that we incremented thisField
         if (thisField > -1):
-            embeds.append(discord.Embed(color=getEmbedData()["color"]))
+            embedData = getEmbedData()
+            embeds.append(discord.Embed(color=embedData["color"]))
+            embeds[thisEmbed].set_footer(text=embedData["footer"]["text"], icon_url=embedData["footer"]["icon_url"])
             embeds[thisEmbed].timestamp = end_of_day
 
             for field in fields:
@@ -406,9 +407,10 @@ async def sendMilestones(milestones, newMonth):
                     embedCharacterLength = 0
                     thisEmbed += 1
                     embeds.append(discord.Embed(color=getEmbedData()["color"]))
+                    embeds[thisEmbed].set_footer(text=embedData["footer"]["text"], icon_url=embedData["footer"]["icon_url"])
                     embeds[thisEmbed].timestamp = end_of_day
         
-        if (not amazingMilestone):
+        if (amazingMilestone):
             await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
         for e in embeds:
             await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
@@ -447,7 +449,9 @@ async def streaks(ctx, extra = None):
     today = datetime.utcnow().date()
     end_of_day = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()) + timedelta(1)
 
-    embed = discord.Embed(title="STREAKS", description="", color=getEmbedData()["color"])
+    embedData = getEmbedData()
+    embed = discord.Embed(title="STREAKS", description="", color=embedData["color"])
+    embed.set_footer(text=embedData["footer"]["text"], icon_url=embedData["footer"]["icon_url"])
     embed.timestamp = end_of_day
 
     if (not extra or extra.lower() == "me"):
@@ -662,7 +666,7 @@ async def casual(ctx):
         if (s.casual):
             msg = await ctx.send(":white_check_mark: `Casual Mode ENABLED. Your streak and Mercy Days have been reset`")
         else:
-            msg = await ctx.send(":white_check_mark: `Casual Mode DISABLED. Remember, you start with 0 Mercy Days`")
+            msg = await ctx.send(":white_check_mark: `Casual Mode DISABLED. Remember, you start Challenge Mode with 0 Mercy Days`")
         await deleteInteraction((msg, ctx.message))
     else:
         msg = await ctx.send(":question: `You can't use this yet. Become a streaker by posting something in {} first`".format(bot.get_channel(DAILY_CHANNEL_ID).name))
@@ -687,6 +691,17 @@ async def alert(ctx):
     except:
         await ctx.send(":x: `I do not have the power to modify roles!!!`")
 
+
+@bot.command(brief="Toggle low Mercy Day warnings. If this is on, Pete will send you a message if your Mercy Days get low")
+async def toggleWarnings(ctx):
+    s = getStreaker(ctx.message.author.id)
+    s.lowMercyWarn = not s.lowMercyWarn; backup()
+
+    if s.lowMercyWarn:
+        await ctx.send(":white_check_mark: `You have ENABLED warnings`")
+    else:
+        await ctx.send(":white_check_mark: `You have DISABLED warnings`")
+
 #
 #
 # ADMIN COMMANDS
@@ -698,13 +713,13 @@ async def setmercies(ctx, user = None, mercies = None):
     if (not await isAdministrator(ctx)):
         return
 
-    if (not isExpectedArgs( (str, int), (user, mercies) )):
+    if (not isExpectedArgs( ((str, int), (str, int)), (user, mercies) )):
         msg = await ctx.send(":x: `!setmercies requires 2 arguments: <user> <mercies>`")
         await deleteInteraction((msg, ctx.message))
         return
 
     if (getStreaker(user)):
-        getStreaker(user).mercies = int(mercies)
+        getStreaker(user).mercies = int(mercies); backup()
     else:
         msg = await ctx.send(":x: `User '{}' not found`".format(user))
         await deleteInteraction((msg, ctx.message))
@@ -717,7 +732,7 @@ async def setstreak(ctx, user = None, newStreak = None, setToToday = None):
     if (not await isAdministrator(ctx)):
         return
 
-    if (not isExpectedArgs( (str, int, (bool, str)), (user, newStreak, setToToday) )):
+    if (not isExpectedArgs( ((str, int), (str, int)), (user, newStreak) )):
         msg = await ctx.send(":x: `!setstreak requires 2 arguments: <user> <streak>`")
         await deleteInteraction((msg, ctx.message))
         return
@@ -730,7 +745,9 @@ async def setstreak(ctx, user = None, newStreak = None, setToToday = None):
             s.lastPostTime = (datetime.utcnow() - timedelta(int(setToToday)))
         else:
             s.lastPostTime = datetime.utcnow()
-        s.streak = int(newStreak); backup()
+        s.streak = int(newStreak)
+        if (s.streak > s.streakRecord): s.streakRecord = s.streak
+        backup()
     else:
         msg = await ctx.send(":x: `User '{}' not found`".format(user))
         await deleteInteraction((msg, ctx.message))
@@ -768,7 +785,9 @@ async def bumpstreak(ctx, user = None, setToToday = None):
             s.lastPostTime = (datetime.utcnow() - timedelta(int(setToToday)))
         else:
             s.lastPostTime = datetime.utcnow()
-        s.streak = s.streak + 1; backup()
+        s.streak = s.streak + 1
+        if (s.streak > s.streakRecord): s.streakRecord = s.streak
+        backup()
     else:
         msg = await ctx.send(":x: `User '{}' not found`".format(user))
         await deleteInteraction((msg, ctx.message))
@@ -782,7 +801,8 @@ async def bumpstreak(ctx, user = None, setToToday = None):
     if (not setToToday):
         await ctx.send(":white_check_mark: `{0}'s streak has been bumped to {1} {2}. Their lastPostTime has been set to yesterday`".format(user.name, s.streak, time_text))
     else:
-        await ctx.send(":white_check_mark: `{0}'s streak has been bumped to {1} {2}. Their lastPostTime has been set to {3} days ago`".format(user.name, newStreak, time_text, int(setToToday)))
+        if (not setToToday.isdigit()): setToToday = "0"
+        await ctx.send(":white_check_mark: `{0}'s streak has been bumped to {1} {2}. Their lastPostTime has been set to {3} days ago`".format(user.name, s.streak, time_text, setToToday))
 
 @bot.command(hidden=True)
 async def checkday(ctx):
@@ -805,8 +825,8 @@ def isExpectedArgs(types, args, decypherString = True):
             if (not args[x] or type(args[x]) != str): continue
             if args[x].isdigit(): args[x] = int(args[x]); continue
             # Why no .isbool()? >:(
-            if args[x].lower == "true": args[x] = True; continue
-            if args[x].lower == "false": args[x] = False; continue
+            if args[x].lower() == "true": args[x] = True; continue
+            if args[x].lower() == "false": args[x] = False; continue
 
     index=-1
     for kind in types:
@@ -814,11 +834,13 @@ def isExpectedArgs(types, args, decypherString = True):
         # If arg can be multiple types...
         if (type(kind) == tuple):
             # if arg is not any of the accepted types
-            if (not type(args[index] in kind)):
+            ## print("Checking if {0} arg is one of kinds {1}".format(args[index], ", ".join(map(str,kind))))
+            if (not type(args[index]) in kind):
                 return False
         # If arg can be only one type...
         else:
             # if arg is not its required type...
+            ## print("Checking if {0} arg is kind {1}".format(args[index], kind))
             if (kind != type(args[index])):
                 return False
     return True
@@ -922,6 +944,10 @@ def getEmbedData():
         print("\n*COULD NOT GET EMBED DATA. USING DEFAULTS...*\n")
         data = {
             "color": 0xD8410A,
+            "footer": {
+                "text": "Default",
+                "icon_url": "https://cdn.discordapp.com/avatars/359521958519504926/dd83c78bd736e67c9801c077d99fb845.png"
+            }
         }
     return data
 
@@ -942,11 +968,12 @@ def backup():
             serializable_data[id] = {}
 
             # Make compatible with v1.2 to v1.5 streak user class
-            if (not s.weekStreak): s.weekStreak = 0
-            if (not s.streakRecord): s.streakRecord = s.streak
-            if (not s.streakAllTime): s.streakAllTime = s.streak
-            if (not s.mercies): s.mercies = 0
-            if (not s.casual): s.casual = False
+            if (not hasattr(s, 'weekStreak')): s.weekStreak = 0
+            if (not hasattr(s, 'streakRecord')): s.streakRecord = s.streak
+            if (not hasattr(s, 'streakAllTime')): s.streakAllTime = s.streak
+            if (not hasattr(s, 'mercies')): s.mercies = 0
+            if (not hasattr(s, 'casual')): s.casual = False
+            if (not hasattr(s, 'lowMercyWarn')): s.lowMercyWarn = True
 
             serializable_data[id]["name"] = s.name
             serializable_data[id]["streak"] = s.streak
@@ -956,6 +983,7 @@ def backup():
             serializable_data[id]["mercies"] = s.mercies
             serializable_data[id]["lastPostTime"] = str(s.lastPostTime)
             serializable_data[id]["casual"] = s.casual
+            serializable_data[id]["lowMercyWarn"] = s.lowMercyWarn
 
         json.dump(serializable_data, dailies_data_file, indent=4, sort_keys=True)
 
@@ -980,6 +1008,7 @@ def load_backup():
                 if (not "streakAllTime" in json_data[id]): json_data[id]["streakAllTime"] = json_data[id]["streak"]
                 if (not "mercies" in json_data[id]): json_data[id]["mercies"] = 0
                 if (not "casual" in json_data[id]): json_data[id]["casual"] = False
+                if (not "lowMercyWarn" in json_data[id]): json_data[id]["lowMercyWarn"] = True
                 streakers.append( Streaker( id=int(id),
                                             name=json_data[id].get("name"),
                                             lpt=time,
@@ -988,7 +1017,8 @@ def load_backup():
                                             streakAllTime=json_data[id]["streakAllTime"],
                                             weekStreak=json_data[id]["weekStreak"],
                                             mercies=json_data[id]["mercies"],
-                                            casual=json_data[id]["casual"]
+                                            casual=json_data[id]["casual"],
+                                            lowMercyWarn = json_data[id]["lowMercyWarn"]
                                             ))
     except Exception as e:
         print("\n**BACKUP MODIFIED OR CORRUPTED**\n")
@@ -1002,18 +1032,18 @@ async def on_command_error(ctx, error):
 
 
 if __name__ == "__main__":
+    main()
     # If we don't have any arguments to process
-    if (len(sys.argv) == 1):
-        getEnvironment()
-        main()
-    else: # Load up the test IDs
-        with open("data/test_server.json", "r") as testServer:
-            jsonData = json.load(testServer)
+    # if (len(sys.argv) == 1):
+    #     main()
+    # else: # Load up the test IDs
+    #     with open("data/test_server.json", "r") as testServer:
+    #         jsonData = json.load(testServer)
 
-            DAILY_CHANNEL_ID = jsonData["DCID"]
-            DDISC_CHANNEL_ID = jsonData["DDCID"]
-            SPAM_CHANNEL_ID  = jsonData["SCID"]
-            STREAKER_NOTIFY_ID = jsonData["SRID"]
-        with open("data/token", "r") as token:
-            BOT_ID = token.readline()
-        main()
+    #         DAILY_CHANNEL_ID = jsonData["DCID"]
+    #         DDISC_CHANNEL_ID = jsonData["DDCID"]
+    #         SPAM_CHANNEL_ID  = jsonData["SCID"]
+    #         STREAKER_NOTIFY_ID = jsonData["SRID"]
+    #     with open("data/token", "r") as token:
+    #         BOT_ID = token.readline()
+    #     main()
