@@ -75,7 +75,7 @@ async def on_ready():
     # -[
     found_update_user = False
 
-    version = "1.6"
+    version = "1.61.2"
     for s in streakers:
         if (s.name == version):
             found_update_user = True
@@ -92,7 +92,9 @@ async def on_ready():
 
     #-]
 
-    try: requests.post(API["postURL"] + "?version={}".format(version))
+    url = API["postURL"] + "?version={}".format(version)
+    print(url)
+    try: requests.post(url)
     except Exception: print("\n*UNABLE TO SEND VERSION TO API*\n")
 
     print("\nDailies bot at the ready!")
@@ -939,7 +941,9 @@ def dayDifferenceNow(oldTime, newTime=0):
 
 def getEmbedData():
     try:
-        data = requests.get(API["getURL"]).json()
+        url = API["getURL"]
+        print(url)
+        data = requests.get(url).json()
     except Exception:
         print("\n*COULD NOT GET EMBED DATA. USING DEFAULTS...*\n")
         data = {
