@@ -57,7 +57,7 @@ This setup is perferred for server deployment.
 ### Pre-Requisites
 
 - [Git](https://git-scm.com/)
-- [Docker Desktop](https://www.docker.com/get-started)
+- [Docker](https://www.docker.com/get-started)
 
 ### Setup
 
