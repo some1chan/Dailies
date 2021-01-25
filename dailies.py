@@ -74,19 +74,23 @@ async def on_ready():
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
     found_update_user = False
+    send_version_update = False
 
-    version = "1.61.2"
+    version_message = """
+:vertical_traffic_light: :sparkles: Quick patch:
+
+- 
+-
+"""
+
+    version = "1.61.3"
     for s in streakers:
         if (s.name == version):
             found_update_user = True
 
     if (not found_update_user):
-        await bot.get_channel(DAILY_CHANNEL_ID).send("""
-:vertical_traffic_light: :yawning_face: ... Oh hey everybody! I've got an update for ya!
-
-- :tools: The embeds should *always* post now. The milestone embed system was massively improved, so that should make its integrity is much better
-- :pencil: Mercy Days are now soft-maxed at 30 days. Your mercy days will not increase beyond 30 days, but if you have more than that right now, the extra won't be taken away
-""")
+        if (send_version_update):
+            await bot.get_channel(DAILY_CHANNEL_ID).send(version_message)
         streakers.append(Streaker(1, version, streak=0))
         backup()
 
@@ -285,7 +289,7 @@ async def sendMilestones(milestones, newMonth):
     if (len(milestones) != 0):
         milestonesSorted = sorted(milestones.items(), key=lambda x: x[1], reverse=True)
         emote = ":heart:"
-        milestone = ""
+        milestone = 0
         milestonePeriod = "DAY"
         for s in milestonesSorted:
             casual = False
@@ -295,9 +299,10 @@ async def sendMilestones(milestones, newMonth):
                 emote = ":revolving_hearts:"
                 milestone = s[0].streak
                 milestonePeriod = "DAY"
-            elif (s[1] == 0):
+                # We have this check before adding it to the milestone list, but somehow 0 day losses showed up again so...
+            elif (s[1] == 0 and s[0].streak > 0):
                 emote = ":100:"
-                milestone = int(s[0].streak)
+                milestone = s[0].streak
                 milestonePeriod = "DAY"
                 s[0].streak = 0 # reset streak
             elif (s[1] == 1):
@@ -695,7 +700,7 @@ async def alert(ctx):
 
 
 @bot.command(brief="Toggle low Mercy Day warnings. If this is on, Pete will send you a message if your Mercy Days get low")
-async def toggleWarnings(ctx):
+async def togglewarnings(ctx):
     s = getStreaker(ctx.message.author.id)
     s.lowMercyWarn = not s.lowMercyWarn; backup()
 
