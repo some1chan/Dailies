@@ -73,8 +73,8 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    found_update_user = False
-    send_version_update = False
+    version = "1.61.4"
+    send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :sparkles: Quick patch:
@@ -83,18 +83,18 @@ async def on_ready():
 -
 """
 
-    version = "1.61.3"
+    found_update_user = False
     for s in streakers:
         if (s.name == version):
             found_update_user = True
 
     if (not found_update_user):
-        if (send_version_update):
+        if (send_version_message):
             await bot.get_channel(DAILY_CHANNEL_ID).send(version_message)
         streakers.append(Streaker(1, version, streak=0))
         backup()
 
-    #-]
+    # ]-
 
     url = API["postURL"] + "?version={}".format(version)
     print(url)
@@ -114,6 +114,7 @@ async def on_message(message):
     if (message.author.id == bot.user.id):
         return
 
+    await reactForProfugo(message)
     await processDay(message)
 
 async def processDay(message, dayTest = False):
@@ -423,6 +424,19 @@ async def sendMilestones(milestones, newMonth):
             await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
     else:
         print("...no milestones to send\n")
+
+
+
+
+async def reactForProfugo(msg):
+    # It would be much more efficient and safe to store his user object in a variable at the start, but I'm lazy, and this shouldn't cause any issues
+    profugo = await bot.fetch_user(99255018363822080) # Profugo Barbatus
+    if (profugo in msg.mentions):
+        await msg.add_reaction('profPing1')
+        await msg.add_reaction('profPing2')
+
+
+
 
 #
 #
