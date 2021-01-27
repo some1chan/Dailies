@@ -432,8 +432,8 @@ async def reactForProfugo(msg):
     # It would be much more efficient and safe to store his user object in a variable at the start, but I'm lazy, and this shouldn't cause any issues
     profugo = await bot.fetch_user(99255018363822080) # Profugo Barbatus
     if (profugo in msg.mentions):
-        await msg.add_reaction('profPing1')
-        await msg.add_reaction('profPing2')
+        await msg.add_reaction('<:profPing:785445886318346290>')
+        await msg.add_reaction('<:profPing2:785445939648790539>')
 
 
 
