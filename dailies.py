@@ -7,14 +7,14 @@ from discord.ext.commands import Bot
 from discord.ext.commands import CommandNotFound
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import asyncio
-import random
-import time
 import requests
 from datetime import datetime, timedelta
 from dateutil import tz
 from calendar import monthrange
 import operator
+import time
 import math
+import random
 import json
 import os
 import sys
@@ -37,7 +37,7 @@ API = {
 }
 
 class Streaker:
-  def __init__(self, id, name=None, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False, lowMercyWarn = True):
+  def __init__(self, id, name=None, days={}, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False, lowMercyWarn = True):
     self.id = id
     self.name = name
     if (lpt): self.lastPostTime = lpt
@@ -49,6 +49,7 @@ class Streaker:
     self.mercies = mercies
     self.casual = casual # Parry this you filthy casual
     self.lowMercyWarn = lowMercyWarn
+    self.days = days
 
 streakers = []
 streakMilestones = {}
@@ -73,14 +74,14 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.61.4"
-    send_version_message = False
+    version = "1.62"
+    send_version_message = True
 
     version_message = """
-:vertical_traffic_light: :sparkles: Quick patch:
+:vertical_traffic_light: :sparkles: Hey streakers! New stuff:
 
-- 
--
+- :date: You can now use a lookup command to see your posts for any given streak day posted after this update. Use `!day` to see a random post! You can also get a specific day like so: `!day 21`
+- :paperclip: Casual streaks were not being reset at the end of the week and month due to an oversight when upgrading the milestone system. This has been fixed.
 """
 
     found_update_user = False
@@ -145,6 +146,7 @@ async def processDay(message, dayTest = False):
     if (message.channel.id == DAILY_CHANNEL_ID):
         streaker = True
 
+    # TODO, if there are performance issues, optimize this. Grab this streaker directly and wait until newDay to check everything else
     for s in streakers:
         # specialMilestone is to tell us if we set our milestone as a loss or mercy
         specialMilestone = False
@@ -195,6 +197,8 @@ async def processDay(message, dayTest = False):
                 s.streak += 1
                 if (s.streak > s.streakRecord): s.streakRecord = s.streak
                 s.streakAllTime += 1
+                # Add this streak message to this streaker's list
+                s.days[str(s.streak)] = message.id
                 backup()
 
                 # Assemble the list of streak milestones
@@ -217,6 +221,8 @@ async def processDay(message, dayTest = False):
                 s.weekStreak += 1
                 if (s.streak > s.streakRecord): s.streakRecord = s.streak
                 s.streakAllTime += 1
+                # Add this streak message to this streaker's list
+                s.days[str(s.streak)] = message.id
                 backup()
 
                 # Add reactions
@@ -261,7 +267,7 @@ async def processDay(message, dayTest = False):
                         streakMilestones[s] = 13
 
     if newDay:
-        await sendMilestones(streakMilestones, newMonth)
+        await sendMilestones(streakMilestones, newMonth, newWeek)
 
     if (streaker and newStreaker):
         #print("streaker added")
@@ -273,11 +279,11 @@ async def processDay(message, dayTest = False):
         else:
             name = info.display_name
 
-        streakers.append(Streaker(message.author.id, name)); backup()
+        streakers.append(Streaker(message.author.id, name, { "1": message.id })); backup()
         await bot.get_channel(DDISC_CHANNEL_ID).send(":white_check_mark: `{} has started their first streak!`".format(name))
 
 
-async def sendMilestones(milestones, newMonth):
+async def sendMilestones(milestones, newMonth, newWeek):
     print("\nSending Milestones...")
     embeds = []
     today = datetime.utcnow().date()
@@ -334,6 +340,13 @@ async def sendMilestones(milestones, newMonth):
                 emote = ":fleur_de_lis:"
                 milestone = s[0].streak
                 milestonePeriod = "DAY"
+            
+            # If it's a new month, reset the casual streaks
+            if (s[1] > 10 and newMonth):
+                s[0].streak = 0
+                s[0].weekStreak = 0
+            if (s[1] > 10 and newWeek):
+                s[0].weekStreak = 0
             
             # Make period plural if milestone is more than one
             milestonePeriod += "S" if milestone != 1 else ""
@@ -429,7 +442,7 @@ async def sendMilestones(milestones, newMonth):
 
 
 async def reactForProfugo(msg):
-    # It would be much more efficient and safe to store his user object in a variable at the start, but I'm lazy, and this shouldn't cause any issues
+    # It would be much more efficient and safe to store his user object in a variable at the start, but I'm lazy and this shouldn't cause any issues
     profugo = await bot.fetch_user(99255018363822080) # Profugo Barbatus
     if (profugo in msg.mentions):
         await msg.add_reaction('<:profPing:785445886318346290>')
@@ -645,6 +658,65 @@ async def streaks(ctx, extra = None):
 
     lastCMDMessage = ctx.message
     lastLBMessage = await ctx.send(embed=embed)
+
+
+@bot.command(brief="Lookup what you posted on a certain day")
+async def day(ctx, day=None, user=None):
+    global lastCMDMessage
+    global lastLBMessage
+    # Delete previous command responses
+    if (lastCMDMessage):
+        try:
+            await lastCMDMessage.delete()
+        except:
+            print("\nUnable to delete lastCMDMessage")
+
+    if (lastLBMessage):
+        try:
+            await lastLBMessage.delete()
+        except:
+            print("\nUnable to delete lastLBMessage")
+
+    # If the user wants to target a specific user...
+    targetUser = getStreaker(ctx.message.author.id)
+    if (user and getStreaker(user)):
+        targetUser = getStreaker(user)
+    iconLink = await bot.fetch_user(ctx.message.author.id)
+    iconLink = iconLink.avatar_url
+
+    streakMessageId = None
+    # If the user wants to find a specific streak day...
+    if (day):
+        for values in targetUser.days.items():
+            if day in values:
+                streakMessageId = values[1]
+    # Else, grab a random one
+    else:
+        day, streakMessageId = random.choice(list(targetUser.days.items()))
+    
+    if (not streakMessageId):
+        msg = await(ctx.send(":x: `Sorry, the post for that day wasn't found`"))
+        await deleteInteraction((msg, ctx.message))
+        return
+
+    streakMessage = await bot.get_channel(DAILY_CHANNEL_ID).fetch_message(streakMessageId)
+
+    today = datetime.utcnow().date()
+    end_of_day = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()) + timedelta(1)
+
+    embedData = getEmbedData()
+    embed = discord.Embed(title="STREAK DAY {}".format(day), description=streakMessage.content, color=embedData["color"])
+    embed.set_author(name=targetUser.name, icon_url=iconLink)
+    embed.set_footer(text=embedData["footer"]["text"], icon_url=embedData["footer"]["icon_url"])
+    embed.timestamp = end_of_day
+
+    if (len(streakMessage.attachments) > 0):
+        embed.set_thumbnail(url=streakMessage.attachments[0].url)
+
+    lastLBMessage = await ctx.send(embed=embed)
+    await ctx.message.delete()
+
+
 
 @bot.command(brief="Toggle casual mode",
     description="""Casual mode allows you to be a streaker without the threat of losing your streak. Your streak will instead be based on a weekly/monthly total, resetting every month.
@@ -997,6 +1069,7 @@ def backup():
             if (not hasattr(s, 'mercies')): s.mercies = 0
             if (not hasattr(s, 'casual')): s.casual = False
             if (not hasattr(s, 'lowMercyWarn')): s.lowMercyWarn = True
+            if (not hasattr(s, 'days')): s.days = {}
 
             serializable_data[id]["name"] = s.name
             serializable_data[id]["streak"] = s.streak
@@ -1007,6 +1080,7 @@ def backup():
             serializable_data[id]["lastPostTime"] = str(s.lastPostTime)
             serializable_data[id]["casual"] = s.casual
             serializable_data[id]["lowMercyWarn"] = s.lowMercyWarn
+            serializable_data[id]["days"] = s.days
 
         json.dump(serializable_data, dailies_data_file, indent=4, sort_keys=True)
 
@@ -1032,8 +1106,10 @@ def load_backup():
                 if (not "mercies" in json_data[id]): json_data[id]["mercies"] = 0
                 if (not "casual" in json_data[id]): json_data[id]["casual"] = False
                 if (not "lowMercyWarn" in json_data[id]): json_data[id]["lowMercyWarn"] = True
+                if (not "days" in json_data[id]): json_data[id]["days"] = {}
                 streakers.append( Streaker( id=int(id),
                                             name=json_data[id].get("name"),
+                                            days=json_data[id]["days"],
                                             lpt=time,
                                             streak=json_data[id]["streak"],
                                             streakRecord=json_data[id]["streakRecord"],
