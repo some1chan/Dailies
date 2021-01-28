@@ -115,7 +115,6 @@ async def on_message(message):
     if (message.author.id == bot.user.id):
         return
 
-    await reactForProfugo(message)
     await processDay(message)
 
 async def processDay(message, dayTest = False):
@@ -437,17 +436,6 @@ async def sendMilestones(milestones, newMonth, newWeek):
             await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
     else:
         print("...no milestones to send\n")
-
-
-
-
-async def reactForProfugo(msg):
-    # It would be much more efficient and safe to store his user object in a variable at the start, but I'm lazy and this shouldn't cause any issues
-    profugo = await bot.fetch_user(99255018363822080) # Profugo Barbatus
-    if (profugo in msg.mentions):
-        await msg.add_reaction('<:profPing:785445886318346290>')
-        await msg.add_reaction('<:profPing2:785445939648790539>')
-
 
 
 
