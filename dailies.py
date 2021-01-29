@@ -74,14 +74,14 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.62"
-    send_version_message = True
+    version = "1.62.2"
+    send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :sparkles: Hey streakers! New stuff:
 
-- :date: You can now use a lookup command to see your posts for any given streak day posted after this update. Use `!day` to see a random post! You can also get a specific day like so: `!day 21`
-- :paperclip: Casual streaks were not being reset at the end of the week and month due to an oversight when upgrading the milestone system. This has been fixed.
+- 
+- 
 """
 
     found_update_user = False
@@ -669,12 +669,16 @@ async def day(ctx, day=None, user=None):
     targetUser = getStreaker(ctx.message.author.id)
     if (user and getStreaker(user)):
         targetUser = getStreaker(user)
-    iconLink = await bot.fetch_user(ctx.message.author.id)
+    # Optionally allow users to get a random post from another user by simply doing '!day <id>'
+    elif (day and getStreaker(day)):
+        targetUser = getStreaker(day)
+        day = None
+    iconLink = await bot.fetch_user(targetUser.id)
     iconLink = iconLink.avatar_url
 
     streakMessageId = None
     # If the user wants to find a specific streak day...
-    if (day):
+    if (day and day.isdigit()):
         for values in targetUser.days.items():
             if day in values:
                 streakMessageId = values[1]
