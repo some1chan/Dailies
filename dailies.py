@@ -74,7 +74,7 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.62.2"
+    version = "1.62.3"
     send_version_message = False
 
     version_message = """
@@ -417,7 +417,7 @@ async def sendMilestones(milestones, newMonth, newWeek):
         if (thisField > -1):
             embedData = getEmbedData()
             embeds.append(discord.Embed(color=embedData["color"]))
-            embeds[thisEmbed].set_footer(text=embedData["footer"]["text"], icon_url=embedData["footer"]["icon_url"])
+            embeds[thisEmbed].set_footer(text="Next Streak Day:", icon_url=embedData["footer"]["icon_url"])
             embeds[thisEmbed].timestamp = end_of_day
 
             for field in fields:
@@ -427,8 +427,6 @@ async def sendMilestones(milestones, newMonth, newWeek):
                     embedCharacterLength = 0
                     thisEmbed += 1
                     embeds.append(discord.Embed(color=getEmbedData()["color"]))
-                    embeds[thisEmbed].set_footer(text=embedData["footer"]["text"], icon_url=embedData["footer"]["icon_url"])
-                    embeds[thisEmbed].timestamp = end_of_day
         
         if (amazingMilestone):
             await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
@@ -473,7 +471,7 @@ async def streaks(ctx, extra = None):
 
     embedData = getEmbedData()
     embed = discord.Embed(title="STREAKS", description="", color=embedData["color"])
-    embed.set_footer(text=embedData["footer"]["text"], icon_url=embedData["footer"]["icon_url"])
+    embed.set_footer(text=embedData["footer"]["text"] + "\nNext Streak Day:", icon_url=embedData["footer"]["icon_url"])
     embed.timestamp = end_of_day
 
     if (not extra or extra.lower() == "me"):
@@ -699,7 +697,7 @@ async def day(ctx, day=None, user=None):
     embedData = getEmbedData()
     embed = discord.Embed(title="STREAK DAY {}".format(day), description=streakMessage.content, color=embedData["color"])
     embed.set_author(name=targetUser.name, icon_url=iconLink)
-    embed.set_footer(text=embedData["footer"]["text"], icon_url=embedData["footer"]["icon_url"])
+    embed.set_footer(text=embedData["footer"]["text"] + "\nNext Streak Day:", icon_url=embedData["footer"]["icon_url"])
     embed.timestamp = end_of_day
 
     if (len(streakMessage.attachments) > 0):
