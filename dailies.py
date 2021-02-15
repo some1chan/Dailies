@@ -14,6 +14,7 @@ from calendar import monthrange
 import operator
 import time
 import math
+from enum import Enum
 import random
 import json
 import os
@@ -37,19 +38,56 @@ API = {
 }
 
 class Streaker:
-  def __init__(self, id, name=None, days={}, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False, lowMercyWarn = True):
-    self.id = id
-    self.name = name
-    if (lpt): self.lastPostTime = lpt
-    else:     self.lastPostTime = datetime.utcnow()
-    self.streak = streak
-    self.weekStreak = weekStreak
-    self.streakRecord = streakRecord
-    self.streakAllTime = streakAllTime
-    self.mercies = mercies
-    self.casual = casual # Parry this you filthy casual
-    self.lowMercyWarn = lowMercyWarn
-    self.days = days
+    def __init__(self, id, name=None, days={}, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False, lowMercyWarn = True):
+        self.id = id
+        self.name = name
+        if (lpt): self.lastPostTime = lpt
+        else:     self.lastPostTime = datetime.utcnow()
+        self.streak = streak
+        self.weekStreak = weekStreak
+        self.streakRecord = streakRecord
+        self.streakAllTime = streakAllTime
+        self.mercies = mercies
+        self.casual = casual # Parry this you filthy casual
+        self.lowMercyWarn = lowMercyWarn
+        self.days = days
+    
+    def BumpStreak(self):
+        self.streak += 1
+        self.streakAllTime += 1
+        self.lastPostTime = datetime.utcnow()
+        if (self.streak > self.streakRecord): self.streakRecord = self.streak
+
+        if (self.casual):
+            self.weekStreak += 1
+        elif (self.streak % 3 == 0 and self.mercies < 30):
+            self.mercies += 1
+        backup()
+
+    def AddDay(self, postID):
+        self.days[str(self.streak)] = postID
+
+    def ResetStreak(self):
+        self.streak = 0
+        self.weekStreak = 0
+        self.lastPostTime = None
+        backup()
+
+
+class Milestone(Enum):
+    Loss = 0
+    New = 1
+    ThreeDay = 2
+    Week = 3
+    Month = 4
+    Year = 5
+    Mercy = 6
+    CasualOneThird = 7
+    CasualTwoThirds = 8
+    CasualThreeThirds = 9
+
+    def __lt__(self, other):
+        return self.value < other.value
 
 streakers = []
 streakMilestones = {}
@@ -74,14 +112,14 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.62.3"
-    send_version_message = False
+    version = "1.63"
+    send_version_message = True
 
     version_message = """
-:vertical_traffic_light: :sparkles: Hey streakers! New stuff:
+:vertical_traffic_light: :tools: Hi everyone! I spruced-up some things today:
 
-- 
-- 
+- :soap: Cleaned up the milestone generation system. It's sparkling and elegant now. Hopefully that cleaning knocked out the bugs in the process.
+- :gear: Improved and upgraded the data classes in the backend. Your stuff is now set and retreived a little more gracefully.
 """
 
     found_update_user = False
@@ -100,7 +138,7 @@ async def on_ready():
     url = API["postURL"] + "?version={}".format(version)
     print(url)
     try: requests.post(url)
-    except Exception: print("\n*UNABLE TO SEND VERSION TO API*\n")
+    except Exception: print("\n*UNABLE TO SEND VERSION TO API*")
 
     print("\nDailies bot at the ready!")
 
@@ -109,29 +147,77 @@ async def on_ready():
 
 
 @bot.event
-async def on_message(message):
-    await bot.process_commands(message)
+async def on_message(msg):
+    await bot.process_commands(msg)
 
-    if (message.author.id == bot.user.id):
+    if (msg.author.id == bot.user.id):
         return
 
-    await processDay(message)
+    if (msg.channel.id == DAILY_CHANNEL_ID): await processStreakMsg(msg)
+    await processEndOfDay(msg)
 
-async def processDay(message, dayTest = False):
-    global streakMilestones
+
+async def processStreakMsg(msg):
+    # Get message
+    # Check for streaker ID
+    # Add streaker if no ID is found
+    # Update streak
+
+    streaker = getStreaker(msg.author.id)
+
+    if (streaker):
+        # If this user was found in the local database...
+        # If this user has already posted today, ignore it
+        if (dayDifferenceNow(streaker.lastPostTime) < 1):
+            await msg.add_reaction('💯')
+            return
+
+        # Update streak and react
+        streaker.BumpStreak()
+        streaker.AddDay(msg.id)
+        await reactToStreak(streaker, msg)
+    else:
+        # If this user was not found, add them to the database
+        await msg.add_reaction('❤️')
+
+        info = await bot.fetch_user(msg.author.id)
+        if len(info.display_name.split()) > 1:
+            name = info.display_name.title()
+        else:
+            name = info.display_name
+
+        streakers.append(Streaker(msg.author.id, name, { "1": msg.id })); backup()
+        await bot.get_channel(DDISC_CHANNEL_ID).send(":white_check_mark: `{} has started their first streak!`".format(name))
+
+
+async def reactToStreak(s, msg):
+    if not s.casual:
+        if (s.streak % 30 == 0):
+            await msg.add_reaction('🔥')
+        elif (s.streak % 7 == 0):
+            await msg.add_reaction('🔱')
+        elif (s.streak % 3 == 0):
+            await msg.add_reaction('⚜️')
+        else:
+            await msg.add_reaction('❤️')
+    else:
+        if s.weekStreak < 3:
+            await msg.add_reaction('⚜️')
+        elif s.weekStreak < 5:
+            await msg.add_reaction('🔱')
+        else:
+            await msg.add_reaction('🔥')
+
+
+async def processEndOfDay(msg, test = False):
     global lastDay
-
-    streaker = False
-    newStreaker = True
-    streaksEnded = {}
+    global streakMilestones
     newDay = False
     newWeek = False
     newMonth = False
-    amazingMilestone = False
-
-    if (datetime.utcnow().day != lastDay or dayTest):
+    if (datetime.utcnow().day != lastDay or test):
         newDay = True
-        if not dayTest:
+        if not test:
             lastDay = datetime.utcnow().day
             # If yesterday's week is not the same as today's week...
             if ( (datetime.utcnow() - timedelta(1)).isocalendar()[1] != datetime.utcnow().isocalendar()[1] ): newWeek = True
@@ -142,15 +228,9 @@ async def processDay(message, dayTest = False):
             newWeek = True
         await bot.get_channel(DAILY_CHANNEL_ID).send(":vertical_traffic_light: `A new streak day has started ( Time in UTC is: {0} )` <@&{1}>".format(datetime.utcnow(), STREAKER_NOTIFY_ID))
 
-    if (message.channel.id == DAILY_CHANNEL_ID):
-        streaker = True
-
-    # TODO, if there are performance issues, optimize this. Grab this streaker directly and wait until newDay to check everything else
-    for s in streakers:
-        # specialMilestone is to tell us if we set our milestone as a loss or mercy
-        specialMilestone = False
-        if newDay:
-
+    specialMilestone = False
+    if newDay:
+        for s in streakers:
             # If this streaker has a null name field, populate it with their username
             if (not s.name):
                 info = await bot.fetch_user(s.id)
@@ -159,20 +239,20 @@ async def processDay(message, dayTest = False):
                 else:
                     s.name = info.display_name
 
-            # if the time since this streaker's last post is more than one day
-            if dayDifferenceNow(s.lastPostTime) > 1 and s.streak != 0:
-                if (not s.casual):
-                    # If this streaker is the rollover-causing author, prevent their streak from being lost
-                    if (s.id == message.author.id and message.channel.id == DAILY_CHANNEL_ID): 
-                        s.lastPostTime = datetime.utcnow() - timedelta(hours = 1)
-                    
+            # if the time since this (Challenge Mode) streaker's last post is more than one day
+            if not s.casual and s.streak != 0 and dayDifferenceNow(s.lastPostTime) > 1:
+                # If this streaker is the rollover-causing author, adjust their post time backward by 1hr so that it doesn't count towards the new day
+                if (s.id == msg.author.id and msg.channel.id == DAILY_CHANNEL_ID): 
+                    s.lastPostTime = datetime.utcnow() - timedelta(hours = 1)
+                else:
                     specialMilestone = True
                     if (s.mercies == 0):
-                        streakMilestones[s] = 0
-                        s.lastPostTime = None
+                        print("{0}'s streak is: {1}".format(s.name, s.streak))
+                        streakMilestones[s.id] = [Milestone.Loss, s.streak]
+                        s.ResetStreak()
                     else:
-                        streakMilestones[s] = 5
-                        s.mercies -= 1
+                        streakMilestones[s.id] = [Milestone.Mercy, s.streak]
+                        s.mercies -= 1; backup()
 
                         if (s.mercies < 2 and s.lowMercyWarn):
                             try:
@@ -181,107 +261,40 @@ async def processDay(message, dayTest = False):
                             except Exception as e:
                                 print("\n{} COULDN'T BE MESSAGED! THEIR STREAK IS ABOUT TO EXPIRE!!!\n".format(s.name))
 
-                    backup()
-
-        if streaker and message.author.id == s.id:
-            newStreaker = False
-
-            if (dayDifferenceNow(s.lastPostTime) < 1):
-                await message.add_reaction('💯')
-                continue
-
-            if not s.casual:
-                s.lastPostTime = datetime.utcnow()
-                s.streak += 1
-                if (s.streak > s.streakRecord): s.streakRecord = s.streak
-                s.streakAllTime += 1
-                # Add this streak message to this streaker's list
-                s.days[str(s.streak)] = message.id
-                backup()
-
-                # Assemble the list of streak milestones
-                # Each milestone is given a value of 1 through 5
-                # This groups the milestones together by length of time/mercy day/casual mode instead of streak total
-                if (s.streak % 30 == 0):
-                    await message.add_reaction('🔥')
-                    if (s.mercies < 30): s.mercies += 1; backup()
-                elif (s.streak % 7 == 0):
-                    await message.add_reaction('🔱')
-                elif (s.streak % 3 == 0):
-                    await message.add_reaction('⚜️')
-                    if (s.mercies < 30): s.mercies += 1; backup()
-                else:
-                    await message.add_reaction('❤️')
-            else:
-                # If we're working with a filthy casual...
-                s.lastPostTime = datetime.utcnow()
-                s.streak += 1
-                s.weekStreak += 1
-                if (s.streak > s.streakRecord): s.streakRecord = s.streak
-                s.streakAllTime += 1
-                # Add this streak message to this streaker's list
-                s.days[str(s.streak)] = message.id
-                backup()
-
-                # Add reactions
-                if s.weekStreak < 3:
-                    await message.add_reaction('⚜️')
-                elif s.weekStreak < 5:
-                    await message.add_reaction('🔱')
-                else:
-                    await message.add_reaction('🔥')
-
-        if newDay:
-            # Assemble the list of challenge milestones
-            # Each milestone is given a value of 1 through 4
-            if not s.casual:
-                # If not a casual streaker, our streak isn't 0, and our milestone isn't a loss or mercy (specialMilestone)...
-                if (s.streak != 0 and not specialMilestone):
+            if (s.streak != 0 and not specialMilestone):
+                if not s.casual:
                     if (s.streak == 1):
-                        streakMilestones[s] = 1
+                        streakMilestones[s.id] = [Milestone.New, s.streak]
+                    elif (s.streak % 365 == 0):
+                        streakMilestones[s.id] = [Milestone.Year, s.streak]
                     elif (s.streak % 30 == 0):
-                        streakMilestones[s] = 4
+                        streakMilestones[s.id] = [Milestone.Month, s.streak]
                     elif (s.streak % 7 == 0):
-                        streakMilestones[s] = 3
+                        streakMilestones[s.id] = [Milestone.Week, s.streak]
                     elif (s.streak % 3 == 0):
-                        streakMilestones[s] = 2
-            # Assemble the list of casual milestones
-            # Each milestone is given a value of 11 through 13
-            else:
-                if newWeek and not newMonth:
-                    if s.weekStreak < 3:
-                        #print("Added milestone")
-                        streakMilestones[s] = 11
-                    elif s.weekStreak < 5:
-                        streakMilestones[s] = 12
-                    else:
-                        streakMilestones[s] = 13
-                elif newMonth:
-                    if s.streak < 10:
-                        streakMilestones[s] = 11
-                    elif s.streak < 20:
-                        streakMilestones[s] = 12
-                    else:
-                        streakMilestones[s] = 13
+                        streakMilestones[s.id] = [Milestone.ThreeDay, s.streak]
+                else:
+                    if newWeek and not newMonth:
+                        if s.weekStreak < 3:
+                            streakMilestones[s.id] = [Milestone.CasualOneThird, s.streak]
+                        elif s.weekStreak < 5:
+                            streakMilestones[s.id] = [Milestone.CasualTwoThirds, s.streak]
+                        else:
+                            streakMilestones[s.id] = [Milestone.CasualThreeThirds, s.streak]
+                    elif newMonth:
+                        if s.streak < 10:
+                            streakMilestones[s.id] = [Milestone.CasualOneThird, s.streak]
+                        elif s.streak < 20:
+                            streakMilestones[s.id] = [Milestone.CasualTwoThirds, s.streak]
+                        else:
+                            streakMilestones[s.id] = [Milestone.CasualThreeThirds, s.streak]
+                    s.ResetStreak()
 
-    if newDay:
-        await sendMilestones(streakMilestones, newMonth, newWeek)
-
-    if (streaker and newStreaker):
-        #print("streaker added")
-        await message.add_reaction('❤️')
-
-        info = await bot.fetch_user(message.author.id)
-        if len(info.display_name.split()) > 1:
-            name = info.display_name.title()
-        else:
-            name = info.display_name
-
-        streakers.append(Streaker(message.author.id, name, { "1": message.id })); backup()
-        await bot.get_channel(DDISC_CHANNEL_ID).send(":white_check_mark: `{} has started their first streak!`".format(name))
+        await sendMilestones(streakMilestones, newWeek)
+        streakMilestones = {}
 
 
-async def sendMilestones(milestones, newMonth, newWeek):
+async def sendMilestones(milestones, newWeek):
     print("\nSending Milestones...")
     embeds = []
     today = datetime.utcnow().date()
@@ -292,73 +305,65 @@ async def sendMilestones(milestones, newMonth, newWeek):
     lossAlerts = []
     amazingMilestone = False
     if (len(milestones) != 0):
-        milestonesSorted = sorted(milestones.items(), key=lambda x: x[1], reverse=True)
+        # Sorted() with this configuration converts to tuple as (Streaker.id as KEY, [Milestone, Streak])
+        milestonesSorted = sorted(milestones.items(), key=lambda x: x[1][0], reverse=True)
         emote = ":heart:"
         milestone = 0
         milestonePeriod = "DAY"
-        for s in milestonesSorted:
+        for keyPair in milestonesSorted:
             casual = False
-            if (s[1] > 10): casual = True
+            if (keyPair[1][0] in [Milestone.CasualOneThird, Milestone.CasualTwoThirds, Milestone.CasualThreeThirds]): casual = True
+            milestone = keyPair[1][1]
 
-            if (s[1] == 5):
+            if (keyPair[1][0] == Milestone.Mercy):
                 emote = ":revolving_hearts:"
-                milestone = s[0].streak
                 milestonePeriod = "DAY"
-                # We have this check before adding it to the milestone list, but somehow 0 day losses showed up again so...
-            elif (s[1] == 0 and s[0].streak > 0):
+            elif (keyPair[1][0] == Milestone.Loss):
                 emote = ":100:"
-                milestone = s[0].streak
                 milestonePeriod = "DAY"
-                s[0].streak = 0 # reset streak
-            elif (s[1] == 1):
+            elif (keyPair[1][0] == Milestone.New):
                 emote = ":beginner:"
-                milestone = s[0].streak
                 milestonePeriod = "DAY"
-            elif (s[1] == 4):
+            elif (keyPair[1][0] == Milestone.Year):
+                emote = ":bangbang: :interrobang:"
+                milestone = keyPair[1][1] // 365
+                milestonePeriod = "YEAR"
+                amazingMilestone = True
+            elif (keyPair[1][0] == Milestone.Month):
                 emote = ":fire:"
-                milestone = s[0].streak // 30
+                milestone = keyPair[1][1] // 30
                 milestonePeriod = "MONTH"
                 amazingMilestone = True
-            elif (s[1] == 3):
+            elif (keyPair[1][0] == Milestone.Week):
                 emote = ":trident:"
-                milestone = s[0].streak // 7
+                milestone = keyPair[1][1] // 7
                 milestonePeriod = "WEEK"
-            elif (s[1] == 2):
+            elif (keyPair[1][0] == Milestone.ThreeDay):
                 emote = ":fleur_de_lis:"
-                milestone = s[0].streak
                 milestonePeriod = "DAY"
-            elif (s[1] == 13):
+            elif (keyPair[1][0] == Milestone.CasualThreeThirds):
                 emote = ":fire:"
-                milestone = s[0].streak
                 milestonePeriod = "DAY"
-            elif (s[1] == 12):
+            elif (keyPair[1][0] == Milestone.CasualTwoThirds):
                 emote = ":trident:"
-                milestone = s[0].streak
                 milestonePeriod = "DAY"
-            elif (s[0].streak > 0):
+            elif (keyPair[1][0] == Milestone.CasualOneThird):
                 emote = ":fleur_de_lis:"
-                milestone = s[0].streak
                 milestonePeriod = "DAY"
-            
-            # If it's a new month, reset the casual streaks
-            if (s[1] > 10 and newMonth):
-                s[0].streak = 0
-                s[0].weekStreak = 0
-            if (s[1] > 10 and newWeek):
-                s[0].weekStreak = 0
             
             # Make period plural if milestone is more than one
             milestonePeriod += "S" if milestone != 1 else ""
-            if (s[1] > 1 and s[1] != 5 and not casual):
-                challengeAlerts.append("\n{0} `{1} has achieved a streak of` **{2} {3}**".format(emote, s[0].name, milestone, milestonePeriod))
-            elif (s[1] == 0):
-                lossAlerts.append("\n{0} `{1} achieved a streak of` **{2} {3}**".format(emote, s[0].name, milestone, milestonePeriod))
-            elif (s[1] == 1):
-                challengeAlerts.append("\n{0} `{1} has started a new streak!`".format(emote, s[0].name))
-            elif (s[1] == 5):
-                challengeAlerts.append("\n{0} `{1}'s streak of` **{2} {3}** `was saved by a Mercy Day!`".format(emote, s[0].name, milestone, milestonePeriod))
-            elif casual:
-                casualAlerts.append("\n{0} `{1} achieved a streak of` **{2} {3}** `this {4}`".format(emote, s[0].name, milestone, milestonePeriod, "MONTH" if newMonth else "WEEK"))
+            streaker = getStreaker(keyPair[0])
+            if (keyPair[1][0] in [Milestone.ThreeDay, Milestone.Week, Milestone.Month, Milestone.Year]):
+                challengeAlerts.append("\n{0} `{1} has achieved a streak of` **{2} {3}**".format(emote, streaker.name, milestone, milestonePeriod))
+            elif (keyPair[1][0] == Milestone.Loss):
+                lossAlerts.append("\n{0} `{1} achieved a streak of` **{2} {3}**".format(emote, streaker.name, milestone, milestonePeriod))
+            elif (keyPair[1][0] == Milestone.New):
+                challengeAlerts.append("\n{0} `{1} has started a new streak!`".format(emote, streaker.name))
+            elif (keyPair[1][0] == Milestone.Mercy):
+                challengeAlerts.append("\n{0} `{1}'s streak of` **{2} {3}** `was saved by a Mercy Day!`".format(emote, streaker.name, milestone, milestonePeriod))
+            elif keyPair[1][0] in [Milestone.CasualOneThird, Milestone.CasualTwoThirds, Milestone.CasualThreeThirds]:
+                casualAlerts.append("\n{0} `{1} achieved a streak of` **{2} {3}** `this {4}`".format(emote, streaker.name, milestone, milestonePeriod, "WEEK" if newWeek else "MONTH"))
         
         fields = []
         thisField = -1
@@ -428,6 +433,7 @@ async def sendMilestones(milestones, newMonth, newWeek):
                     thisEmbed += 1
                     embeds.append(discord.Embed(color=getEmbedData()["color"]))
         
+        # Thought about adding this as a thumbnail to the first embed, but it's too dang small to notice
         if (amazingMilestone):
             await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
         for e in embeds:
@@ -892,7 +898,7 @@ async def checkday(ctx):
     if (not await isAdministrator(ctx)):
         return
 
-    await processDay(ctx.message, True)
+    await processEndOfDay(ctx.message, True)
 
 #
 #
