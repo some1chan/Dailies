@@ -174,11 +174,10 @@ async def processDay(message, dayTest = False):
                         streakMilestones[s] = 5
                         s.mercies -= 1
 
-                        if (s.mercies < 2):
+                        if (s.mercies < 2 and s.lowMercyWarn):
                             try:
-                                if (s.lowMercyWarn):
-                                    user = await bot.fetch_user(s.id)
-                                    await user.send("Your streak is going to expire in **{0} {2}**. You have **{1} Mercy Days** left!\nMake sure to post something in `#daily-challenge` before then.\n\nUse `!toggleWarnings` to turn this notification off.".format(s.mercies + 1, s.mercies, "Days" if (s.mercies + 1 > 1) else "Day"))
+                                user = await bot.fetch_user(s.id)
+                                await user.send("Your streak is going to expire in **{0} {2}**. You have **{1} Mercy Days** left!\nMake sure to post something in `#daily-challenge` before then.\n\nUse `!toggleWarnings` to turn this notification off.".format(s.mercies + 1, s.mercies, "Days" if (s.mercies + 1 > 1) else "Day"))
                             except Exception as e:
                                 print("\n{} COULDN'T BE MESSAGED! THEIR STREAK IS ABOUT TO EXPIRE!!!\n".format(s.name))
 
@@ -314,6 +313,7 @@ async def sendMilestones(milestones, newMonth, newWeek):
             elif (s[1] == 1):
                 emote = ":beginner:"
                 milestone = s[0].streak
+                milestonePeriod = "DAY"
             elif (s[1] == 4):
                 emote = ":fire:"
                 milestone = s[0].streak // 30
