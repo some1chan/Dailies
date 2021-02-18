@@ -112,14 +112,13 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.63"
-    send_version_message = True
+    version = "1.63.1"
+    send_version_message = False
 
     version_message = """
-:vertical_traffic_light: :tools: Hi everyone! I spruced-up some things today:
+:vertical_traffic_light: :lady_beetle: Quick patch:
 
-- :soap: Cleaned up the milestone generation system. It's sparkling and elegant now. Hopefully that cleaning knocked out the bugs in the process.
-- :gear: Improved and upgraded the data classes in the backend. Your stuff is now set and retreived a little more gracefully.
+- :carpentry_saw: Fixed the issue causing some milestones to not show.
 """
 
     found_update_user = False
@@ -228,9 +227,9 @@ async def processEndOfDay(msg, test = False):
             newWeek = True
         await bot.get_channel(DAILY_CHANNEL_ID).send(":vertical_traffic_light: `A new streak day has started ( Time in UTC is: {0} )` <@&{1}>".format(datetime.utcnow(), STREAKER_NOTIFY_ID))
 
-    specialMilestone = False
     if newDay:
         for s in streakers:
+            specialMilestone = False
             # If this streaker has a null name field, populate it with their username
             if (not s.name):
                 info = await bot.fetch_user(s.id)
@@ -247,7 +246,6 @@ async def processEndOfDay(msg, test = False):
                 else:
                     specialMilestone = True
                     if (s.mercies == 0):
-                        print("{0}'s streak is: {1}".format(s.name, s.streak))
                         streakMilestones[s.id] = [Milestone.Loss, s.streak]
                         s.ResetStreak()
                     else:
@@ -307,6 +305,7 @@ async def sendMilestones(milestones, newWeek):
     if (len(milestones) != 0):
         # Sorted() with this configuration converts to tuple as (Streaker.id as KEY, [Milestone, Streak])
         milestonesSorted = sorted(milestones.items(), key=lambda x: x[1][0], reverse=True)
+        print(milestonesSorted)
         emote = ":heart:"
         milestone = 0
         milestonePeriod = "DAY"
