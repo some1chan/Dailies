@@ -112,7 +112,7 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.63.1"
+    version = "1.63.2"
     send_version_message = False
 
     version_message = """
@@ -305,7 +305,6 @@ async def sendMilestones(milestones, newWeek):
     if (len(milestones) != 0):
         # Sorted() with this configuration converts to tuple as (Streaker.id as KEY, [Milestone, Streak])
         milestonesSorted = sorted(milestones.items(), key=lambda x: x[1][0], reverse=True)
-        print(milestonesSorted)
         emote = ":heart:"
         milestone = 0
         milestonePeriod = "DAY"
@@ -425,13 +424,12 @@ async def sendMilestones(milestones, newWeek):
             embeds[thisEmbed].timestamp = end_of_day
 
             for field in fields:
-                embeds[thisEmbed].add_field(name=field["name"], value=field["value"], inline=False)
-                embedCharacterLength += len(field["value"])
                 if (embedCharacterLength > 5000):
                     embedCharacterLength = 0
                     thisEmbed += 1
                     embeds.append(discord.Embed(color=getEmbedData()["color"]))
-        
+                embeds[thisEmbed].add_field(name=field["name"], value=field["value"], inline=False)
+                embedCharacterLength += len(field["value"])
         # Thought about adding this as a thumbnail to the first embed, but it's too dang small to notice
         if (amazingMilestone):
             await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
@@ -639,13 +637,13 @@ async def streaks(ctx, extra = None):
         try:
             await lastCMDMessage.delete()
         except:
-            print("\nUnable to delete lastCMDMessage")
+            pass
 
     if (lastLBMessage):
         try:
             await lastLBMessage.delete()
         except:
-            print("\nUnable to delete lastLBMessage")
+            pass
 
     lastCMDMessage = ctx.message
     lastLBMessage = await ctx.send(embed=embed)
@@ -660,13 +658,13 @@ async def day(ctx, day=None, user=None):
         try:
             await lastCMDMessage.delete()
         except:
-            print("\nUnable to delete lastCMDMessage")
+            pass
 
     if (lastLBMessage):
         try:
             await lastLBMessage.delete()
         except:
-            print("\nUnable to delete lastLBMessage")
+            pass
 
     # If the user wants to target a specific user...
     targetUser = getStreaker(ctx.message.author.id)
@@ -676,8 +674,13 @@ async def day(ctx, day=None, user=None):
     elif (day and getStreaker(day)):
         targetUser = getStreaker(day)
         day = None
-    iconLink = await bot.fetch_user(targetUser.id)
-    iconLink = iconLink.avatar_url
+    
+    try:
+        iconLink = await bot.fetch_user(targetUser.id).avatar_url
+    except:
+        msg = await(ctx.send(":x: `Sorry, I couldn't find this user: {}`".format(targetUser)))
+        await deleteInteraction((msg, ctx.message))
+        return
 
     streakMessageId = None
     # If the user wants to find a specific streak day...
@@ -725,13 +728,13 @@ async def casual(ctx):
         try:
             await lastCMDMessage.delete()
         except:
-            print("\nUnable to delete lastCMDMessage")
+            pass
 
     if (lastLBMessage):
         try:
             await lastLBMessage.delete()
         except:
-            print("\nUnable to delete lastLBMessage")
+            pass
 
     if (getStreaker(ctx.message.author.id)):
         s = getStreaker(ctx.message.author.id)
@@ -1028,7 +1031,6 @@ def dayDifferenceNow(oldTime, newTime=0):
 def getEmbedData():
     try:
         url = API["getURL"]
-        print(url)
         data = requests.get(url).json()
     except Exception:
         print("\n*COULD NOT GET EMBED DATA. USING DEFAULTS...*\n")
@@ -1116,7 +1118,6 @@ def load_backup():
                                             ))
     except Exception as e:
         print("\n**BACKUP MODIFIED OR CORRUPTED**\n")
-        print(e)
 
 @bot.event
 async def on_command_error(ctx, error):
