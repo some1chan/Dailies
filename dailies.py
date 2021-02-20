@@ -112,13 +112,13 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.63.2"
+    version = "1.63.3"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :lady_beetle: Quick patch:
 
-- :carpentry_saw: Fixed the issue causing some milestones to not show.
+- :carpentry_saw: Fixed casual streaks being reset each week instead of at the end of the month
 """
 
     found_update_user = False
@@ -286,13 +286,13 @@ async def processEndOfDay(msg, test = False):
                             streakMilestones[s.id] = [Milestone.CasualTwoThirds, s.streak]
                         else:
                             streakMilestones[s.id] = [Milestone.CasualThreeThirds, s.streak]
-                    s.ResetStreak()
+                        s.ResetStreak()
 
-        await sendMilestones(streakMilestones, newWeek)
+        await sendMilestones(streakMilestones, newMonth)
         streakMilestones = {}
 
 
-async def sendMilestones(milestones, newWeek):
+async def sendMilestones(milestones, newMonth):
     print("\nSending Milestones...")
     embeds = []
     today = datetime.utcnow().date()
@@ -361,7 +361,7 @@ async def sendMilestones(milestones, newWeek):
             elif (keyPair[1][0] == Milestone.Mercy):
                 challengeAlerts.append("\n{0} `{1}'s streak of` **{2} {3}** `was saved by a Mercy Day!`".format(emote, streaker.name, milestone, milestonePeriod))
             elif keyPair[1][0] in [Milestone.CasualOneThird, Milestone.CasualTwoThirds, Milestone.CasualThreeThirds]:
-                casualAlerts.append("\n{0} `{1} achieved a streak of` **{2} {3}** `this {4}`".format(emote, streaker.name, milestone, milestonePeriod, "WEEK" if newWeek else "MONTH"))
+                casualAlerts.append("\n{0} `{1} achieved a streak of` **{2} {3}** `this {4}`".format(emote, streaker.name, milestone, milestonePeriod, "MONTH" if newMonth else "WEEK"))
         
         fields = []
         thisField = -1
