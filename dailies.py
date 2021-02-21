@@ -112,13 +112,13 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.63.3"
+    version = "1.63.4"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :lady_beetle: Quick patch:
 
-- :carpentry_saw: Fixed casual streaks being reset each week instead of at the end of the month
+- :carpentry_saw: Fixed casual streaks (again)
 """
 
     found_update_user = False
@@ -274,11 +274,12 @@ async def processEndOfDay(msg, test = False):
                 else:
                     if newWeek and not newMonth:
                         if s.weekStreak < 3:
-                            streakMilestones[s.id] = [Milestone.CasualOneThird, s.streak]
+                            streakMilestones[s.id] = [Milestone.CasualOneThird, s.weekStreak]
                         elif s.weekStreak < 5:
-                            streakMilestones[s.id] = [Milestone.CasualTwoThirds, s.streak]
+                            streakMilestones[s.id] = [Milestone.CasualTwoThirds, s.weekStreak]
                         else:
-                            streakMilestones[s.id] = [Milestone.CasualThreeThirds, s.streak]
+                            streakMilestones[s.id] = [Milestone.CasualThreeThirds, s.weekStreak]
+                        s.weekStreak = 0
                     elif newMonth:
                         if s.streak < 10:
                             streakMilestones[s.id] = [Milestone.CasualOneThird, s.streak]
@@ -286,7 +287,7 @@ async def processEndOfDay(msg, test = False):
                             streakMilestones[s.id] = [Milestone.CasualTwoThirds, s.streak]
                         else:
                             streakMilestones[s.id] = [Milestone.CasualThreeThirds, s.streak]
-                        s.ResetStreak()
+                        s.streak = 0
 
         await sendMilestones(streakMilestones, newMonth)
         streakMilestones = {}
