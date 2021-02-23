@@ -16,7 +16,7 @@ This setup is perferred for development.
 ### Pre-Requisites
 
 - [Git](https://git-scm.com/)
-- [Python 3](python.org) (Tested with 3.8.4)
+- [Python 3](https://python.org) (Tested with 3.8.4)
 
 ### Setup
 
