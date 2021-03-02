@@ -19,6 +19,7 @@ import random
 import json
 import os
 import sys
+import traceback
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -112,13 +113,15 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.63.4"
+    version = "1.63.5"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :lady_beetle: Quick patch:
 
-- :carpentry_saw: Fixed casual streaks (again)
+- :mag: Added logging to milestone embeds so that I can see what the bug is next time it fails to post
+- :paperclip: Fixed !day command
+- :heart: Fixed rollover-causing streak messages. They should now properly set the last-post-time of the streaker to the previous day
 """
 
     found_update_user = False
@@ -161,15 +164,19 @@ async def processStreakMsg(msg):
     # Check for streaker ID
     # Add streaker if no ID is found
     # Update streak
+    global lastDay
 
     streaker = getStreaker(msg.author.id)
 
     if (streaker):
         # If this user was found in the local database...
         # If this user has already posted today, ignore it
-        if (dayDifferenceNow(streaker.lastPostTime) < 1):
+        # Unless this is the rollover-causing streaker (today != lastDay)
+        if (dayDifferenceNow(streaker.lastPostTime) < 1 and datetime.utcnow().day == lastDay):
             await msg.add_reaction('💯')
             return
+        else:
+            streaker.lastPostTime = datetime.utcnow() - timedelta(hours = 1)
 
         # Update streak and react
         streaker.BumpStreak()
@@ -434,8 +441,33 @@ async def sendMilestones(milestones, newMonth):
         # Thought about adding this as a thumbnail to the first embed, but it's too dang small to notice
         if (amazingMilestone):
             await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
-        for e in embeds:
-            await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
+        try:
+            for e in embeds:
+                await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
+        except Exception:
+            # This ugly thing logs the nitty-gritty details of the embeds and fields. This should allow me to pinpoint exactly what is going wrong when it next chucks a fastball
+            print("\n* ERROR SUBMITTING MILESTONES *\n")
+            error = traceback.format_exc()
+            embed_str = []
+            eCount = 0
+            for e in embeds:
+                embed_str.append("EMBED {}\n".format(eCount))
+                for f in e.fields:
+                    for line in str(f).split("\\n"):
+                        embed_str.append(line + "\n")
+                embed_str.append(str(e.footer) + "\n")
+                eCount += 1
+            field_str = []
+            for f in fields:
+                for line in str(f).split("\\n"):
+                    field_str.append(line + "\n")
+            with open("data/log.txt", "w") as log_file:
+                log_file.write("ERROR:\n{}".format(error))
+                log_file.write("\n\nEMBEDS:\n")
+                log_file.writelines(embed_str)
+                log_file.write("\n\nFIELDS:\n")
+                log_file.writelines(field_str)
+
     else:
         print("...no milestones to send\n")
 
@@ -677,9 +709,9 @@ async def day(ctx, day=None, user=None):
         day = None
     
     try:
-        iconLink = await bot.fetch_user(targetUser.id).avatar_url
+        iconLink = await bot.fetch_user(targetUser.id); iconLink = iconLink.avatar_url
     except:
-        msg = await(ctx.send(":x: `Sorry, I couldn't find this user: {}`".format(targetUser)))
+        msg = await(ctx.send(":x: `Sorry, I couldn't find this user: {}`".format(targetUser.name)))
         await deleteInteraction((msg, ctx.message))
         return
 
