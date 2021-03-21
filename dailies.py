@@ -113,7 +113,7 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.63.5"
+    version = "1.63.6"
     send_version_message = False
 
     version_message = """
@@ -443,6 +443,8 @@ async def sendMilestones(milestones, newMonth):
             await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
         try:
             for e in embeds:
+                # skip empty embeds (shouldn't happen, but it does pretty rarely)
+                if (len(e.fields) == 0): continue
                 await bot.get_channel(DAILY_CHANNEL_ID).send(embed=e)
         except Exception:
             # This ugly thing logs the nitty-gritty details of the embeds and fields. This should allow me to pinpoint exactly what is going wrong when it next chucks a fastball
