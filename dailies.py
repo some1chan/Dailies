@@ -113,15 +113,13 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.63.6"
+    version = "1.63.7"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :lady_beetle: Quick patch:
 
-- :mag: Added logging to milestone embeds so that I can see what the bug is next time it fails to post
-- :paperclip: Fixed !day command
-- :heart: Fixed rollover-causing streak messages. They should now properly set the last-post-time of the streaker to the previous day
+- :mag: Changed order of field generation statements to hopefully fix occassional embed hiccups
 """
 
     found_update_user = False
@@ -381,13 +379,13 @@ async def sendMilestones(milestones, newMonth):
             })
             thisField += 1
             for line in challengeAlerts:
-                fields[thisField]["value"] += line
                 if len(fields[thisField]["value"]) > 900:
                     fields.append({
                         "name": "Milestones",
                         "value": ""
                     })
                     thisField += 1
+                fields[thisField]["value"] += line
         else: print("No Milestones")
 
         if (len(casualAlerts) > 0):
@@ -397,13 +395,13 @@ async def sendMilestones(milestones, newMonth):
             })
             thisField += 1
             for line in casualAlerts:
-                fields[thisField]["value"] += line
                 if len(fields[thisField]["value"]) > 900:
                     fields.append({
                         "name": "Casual Milestones",
                         "value": ""
                     })
                     thisField += 1
+                fields[thisField]["value"] += line
         else: print("No Casual Milestones")
 
         if (len(lossAlerts) > 0):
@@ -413,13 +411,13 @@ async def sendMilestones(milestones, newMonth):
             })
             thisField += 1
             for line in lossAlerts:
-                fields[thisField]["value"] += line
                 if len(fields[thisField]["value"]) > 900:
                     fields.append({
                         "name": "Losses",
                         "value": ""
                     })
                     thisField += 1
+                fields[thisField]["value"] += line
         else: print("No Losses")
 
         embedCharacterLength = 0
