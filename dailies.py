@@ -39,7 +39,7 @@ API = {
 }
 
 class Streaker:
-    def __init__(self, id, name=None, days={}, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False, lowMercyWarn = True):
+    def __init__(self, id, name=None, days={}, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False, lowMercyWarn = True, vacationMode = (False, datetime.utcnow()-timedelta(2))):
         self.id = id
         self.name = name
         if (lpt): self.lastPostTime = lpt
@@ -52,6 +52,7 @@ class Streaker:
         self.casual = casual # Parry this you filthy casual
         self.lowMercyWarn = lowMercyWarn
         self.days = days
+        self.vacationMode = vacationMode
     
     def BumpStreak(self):
         self.streak += 1
@@ -113,13 +114,13 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.63.7"
-    send_version_message = False
+    version = "1.64.0"
+    send_version_message = True
 
     version_message = """
-:vertical_traffic_light: :lady_beetle: Quick patch:
+:vertical_traffic_light: :sparkles: New Feature:
 
-- :mag: Changed order of field generation statements to hopefully fix occassional embed hiccups
+- :beach: Due to enough demand, Vacation Mode has been added! Upon any change, it cannot be enabled for 24hrs, but it prevents your streak from being lost. Use `!vacation` to enable
 """
 
     found_update_user = False
@@ -170,6 +171,11 @@ async def processStreakMsg(msg):
         # If this user was found in the local database...
         # If this user has already posted today, ignore it
         # Unless this is the rollover-causing streaker (today != lastDay)
+        if (streaker.vacationMode[0]):
+            await msg.add_reaction('⚠️')
+            await bot.get_channel(DDISC_CHANNEL_ID).send(":warning: {} ` You need to disable Vacation Mode to continue your streak! Use '!vacation'`".format(msg.author.mention))
+            return
+
         if (dayDifferenceNow(streaker.lastPostTime) < 1 and datetime.utcnow().day == lastDay):
             await msg.add_reaction('💯')
             return
@@ -826,6 +832,24 @@ async def togglewarnings(ctx):
     else:
         await ctx.send(":white_check_mark: `You have DISABLED warnings`")
 
+
+@bot.command(brief="Toggle vacation mode")
+async def vacation(ctx):
+    s = getStreaker(ctx.message.author.id)
+
+    if s: # If streaker was found
+        if not s.vacationMode[0]: # if vacation mode is not on...
+            if dayDifferenceNow(s.vacationMode[1]) > 1: # if vacation mode lastChangeTime is not too recent
+                s.vacationMode = (True, datetime.utcnow())
+                await ctx.send(":white_check_mark: `Vacation Mode ENABLED`")
+            else:
+                await ctx.send(":x: `Sorry, you can't change vacation mode for another {}hrs`".format(24-dayDifferenceNow(s.vacationMode[1])*24))
+        else:
+            s.vacationMode = (False, datetime.utcnow())
+            await ctx.send(":white_check_mark: `Vacation Mode DISABLED`")
+    else:
+        await ctx.send(":x: `You need to start a streak first!`")
+
 #
 #
 # ADMIN COMMANDS
@@ -1100,6 +1124,7 @@ def backup():
             if (not hasattr(s, 'casual')): s.casual = False
             if (not hasattr(s, 'lowMercyWarn')): s.lowMercyWarn = True
             if (not hasattr(s, 'days')): s.days = {}
+            if (not hasattr(s, 'vacationMode')): s.vacationMode = (False, datetime.utcnow() - timedelta(2))
 
             serializable_data[id]["name"] = s.name
             serializable_data[id]["streak"] = s.streak
@@ -1111,6 +1136,7 @@ def backup():
             serializable_data[id]["casual"] = s.casual
             serializable_data[id]["lowMercyWarn"] = s.lowMercyWarn
             serializable_data[id]["days"] = s.days
+            serializable_data[id]["vacationMode"] = (s.vacationMode[0], str(s.vacationMode[1]))
 
         json.dump(serializable_data, dailies_data_file, indent=4, sort_keys=True)
 
@@ -1137,6 +1163,10 @@ def load_backup():
                 if (not "casual" in json_data[id]): json_data[id]["casual"] = False
                 if (not "lowMercyWarn" in json_data[id]): json_data[id]["lowMercyWarn"] = True
                 if (not "days" in json_data[id]): json_data[id]["days"] = {}
+                if (not "vacationMode" in json_data[id]): json_data[id]["vacationMode"] = (False, datetime.utcnow() - timedelta(2))
+
+                vacationModeTime = datetime.strptime(str(json_data[id]["vacationMode"][1]), '%Y-%m-%d %H:%M:%S.%f')
+
                 streakers.append( Streaker( id=int(id),
                                             name=json_data[id].get("name"),
                                             days=json_data[id]["days"],
@@ -1147,10 +1177,12 @@ def load_backup():
                                             weekStreak=json_data[id]["weekStreak"],
                                             mercies=json_data[id]["mercies"],
                                             casual=json_data[id]["casual"],
-                                            lowMercyWarn = json_data[id]["lowMercyWarn"]
+                                            lowMercyWarn = json_data[id]["lowMercyWarn"],
+                                            vacationMode=(json_data[id]["vacationMode"][0], vacationModeTime)
                                             ))
     except Exception as e:
         print("\n**BACKUP MODIFIED OR CORRUPTED**\n")
+        print(traceback.print_exc())
 
 @bot.event
 async def on_command_error(ctx, error):
