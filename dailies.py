@@ -114,8 +114,8 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.1"
-    send_version_message = True
+    version = "1.64.2"
+    send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
@@ -556,7 +556,7 @@ async def streaks(ctx, extra = None):
                 else: day2 = ""
                 embed.description="Current Month Streak: **{0} {4}**\nCurrent Week Streak: **{1} {5}**\n\n`Highest Streak: {2}\nStreak Day Total: {3}`".format(streakUser.streak, streakUser.weekStreak, streakUser.streakRecord, streakUser.streakAllTime, day1, day2)
         else:
-            embed.title="Clothist Mode"
+            embed.title=":reminder_ribbon: Clothist Mode"
             embed.description="You do not have a streak. Start one in {}".format(bot.get_channel(DAILY_CHANNEL_ID).name)
 
     elif (extra.lower() == "all"):
@@ -651,7 +651,8 @@ async def streaks(ctx, extra = None):
                     break
 
             if (streakUser):
-                embed.title="Challenge Mode" if not streakUser.casual else "Casual Mode"
+                if streakUser.vacationMode[0]: embed.title = ":beach: Vacation Mode"
+                else: embed.title=":crossed_swords: Challenge Mode" if not streakUser.casual else ":shield: Casual Mode"
                 if (not streakUser.casual):
                     # Uhg, this mess
                     if (streakUser.streak > 1): day1 = "DAYS"
@@ -668,10 +669,10 @@ async def streaks(ctx, extra = None):
                     else: day2 = ""
                     embed.description="Current Month Streak: **{0} {4}**\nCurrent Week Streak: **{1} {5}**\n\n`Highest Streak:` {2}\n`Streak Day Total:` {3}".format(streakUser.streak, streakUser.weekStreak, streakUser.streakRecord, streakUser.streakAllTime, day1, day2)
             else:
-                embed.title="Clothist Mode"
+                embed.title=":reminder_ribbon: Clothist Mode"
                 embed.description="This user does not have a streak"
         except Exception as e:
-            embed.title="ERROR"
+            embed.title=":x: ERROR"
             embed.description="I couldn't find {}'s info".format(extra)
             embed.set_author(name = "", icon_url="")
 
