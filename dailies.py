@@ -114,13 +114,15 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.0"
+    version = "1.64.1"
     send_version_message = True
 
     version_message = """
-:vertical_traffic_light: :sparkles: New Feature:
+:vertical_traffic_light: :wrench: Bug Fix:
 
-- :beach: Due to enough demand, Vacation Mode has been added! Upon any change, it cannot be enabled for 24hrs, but it prevents your streak from being lost. Use `!vacation` to enable
+:beetle: Vacation Mode works properly now and won't use up your Mercy Days
+:tools: When Vacation Mode is enabled, it is now visible streak tooltips
+:sparkles: Streak tooltips now have icons
 """
 
     found_update_user = False
@@ -250,7 +252,7 @@ async def processEndOfDay(msg, test = False):
                     s.name = info.display_name
 
             # if the time since this (Challenge Mode) streaker's last post is more than one day
-            if not s.casual and s.streak != 0 and dayDifferenceNow(s.lastPostTime) > 1:
+            if not s.casual and not s.vacationMode[0] and s.streak != 0 and dayDifferenceNow(s.lastPostTime) > 1:
                 # If this streaker is the rollover-causing author, adjust their post time backward by 1hr so that it doesn't count towards the new day
                 if (s.id == msg.author.id and msg.channel.id == DAILY_CHANNEL_ID): 
                     s.lastPostTime = datetime.utcnow() - timedelta(hours = 1)
@@ -535,7 +537,9 @@ async def streaks(ctx, extra = None):
             else:
                 s.name = user.display_name
 
-            embed.title="Challenge Mode" if not streakUser.casual else "Casual Mode"
+            if streakUser.vacationMode[0]: embed.title = ":beach: Vacation Mode"
+            else: embed.title=":crossed_swords: Challenge Mode" if not streakUser.casual else ":shield: Casual Mode"
+
             if (not streakUser.casual):
                 # Uhg, this mess
                 if (streakUser.streak > 1): day1 = "DAYS"
