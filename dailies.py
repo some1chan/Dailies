@@ -115,15 +115,14 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.3"
+    version = "1.64.4"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
 
-:beetle: Vacation Mode works properly now and won't use up your Mercy Days
-:tools: When Vacation Mode is enabled, it is now visible streak tooltips
-:sparkles: Streak tooltips now have icons
+:beetle: Fixed error with Vacation Mode. The time between two dates is properly calculated now
+:beetle: Fixed errors to do with using Admin commands in DMs. They have now been disabled due to not being able to regulate them easily there.
 """
 
     found_update_user = False
@@ -970,7 +969,7 @@ async def dump_userdata(ctx, user = None):
     if (not await isAdministrator(ctx)):
         return
 
-    if (not isExpectedArgs(str, user)):
+    if (not isExpectedArgs((str, int), user)):
         msg = await ctx.send(":x: `!dump_userdata requires 1 arguments: <user>`")
         await deleteInteraction((msg, ctx.message))
         return
@@ -1036,6 +1035,7 @@ def isExpectedArgs(types, args, decypherString = True):
     return True
 
 async def isAdministrator(ctx):
+    if (not ctx.message.guild): msg = await ctx.send(":x: `Sorry, Admin commands cannot be done in a DM`"); deleteInteraction(msg); return False
     mod_role = discord.utils.get(ctx.message.guild.roles, id=462342299171684364)
 
     if (ctx.message.author.id != 359521958519504926 and mod_role not in ctx.message.author.roles):
@@ -1096,35 +1096,10 @@ async def deleteInteraction(msgs):
         await msgs.delete()
 
 def dayDifferenceNow(oldTime, newTime=0):
-    # if (newTime != 0): # FOR TESTING PURPOSES
-    #     dayNow = newTime.day
-    #     dayOld = oldTime.day
-
-    #     dif = dayNow - dayOld
-
-    #     if (dif > -1):
-    #         return dif
-    #     else:
-    #         # if the month has rolled over, get the amount of days between the old time, the end of the month, and now
-    #         mLength = monthrange(oldTime.year, oldTime.month)[1]
-    #         dif = (mLength - dayOld) + dayNow
-    #         return dif
-
     if (oldTime != None):
-        dayNow = datetime.utcnow().day
-        dayOld = oldTime.day
-
-        dif = dayNow - dayOld
-
-        if (dif > -1):
-            return dif
-        else:
-            # if the month has rolled over, get the amount of days between the old time, the end of the month, and now
-            mLength = monthrange(oldTime.year, oldTime.month)[1]
-            dif = (mLength - dayOld) + dayNow
-            return dif
+        dif = (datetime.utcnow() - oldTime).days
+        return dif
     else:
-        #print("old time is 0 :(")
         return 1
 
 def getEmbedData():
