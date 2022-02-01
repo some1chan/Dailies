@@ -115,7 +115,7 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.2"
+    version = "1.64.3"
     send_version_message = False
 
     version_message = """
@@ -984,6 +984,8 @@ async def dump_userdata(ctx, user = None):
         return
 
     userdata = getUserdata(id)
+    userdata[0].pop('days', None)
+    userdata[1].pop('days', None)
 
     await ctx.send("""```json
 • USER INSTANCE
