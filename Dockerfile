@@ -1,4 +1,4 @@
-FROM python:3-alpine as base
+FROM python:3.9-alpine as base
 
 RUN apk add --no-cache --virtual .build-deps \
 	gcc musl-dev
@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Production
-FROM python:3-alpine
+FROM python:3.9-alpine
 
 WORKDIR /app
 
