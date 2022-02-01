@@ -20,6 +20,7 @@ import json
 import os
 import sys
 import traceback
+import pprint
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -964,6 +965,34 @@ async def checkday(ctx):
 
     await processEndOfDay(ctx.message, True)
 
+@bot.command(hidden=True)
+async def dump_userdata(ctx, user = None):
+    if (not await isAdministrator(ctx)):
+        return
+
+    if (not isExpectedArgs(str, user)):
+        msg = await ctx.send(":x: `!dump_userdata requires 1 arguments: <user>`")
+        await deleteInteraction((msg, ctx.message))
+        return
+
+    id = 0
+    if (getStreaker(user)):
+        id = getStreaker(user).id
+    else:
+        msg = await ctx.send(":x: `User '{}' not found`".format(user))
+        await deleteInteraction((msg, ctx.message))
+        return
+
+    userdata = getUserdata(id)
+
+    await ctx.send("""```json
+• USER INSTANCE
+{0}
+
+○ STORED USERDATA
+{1}
+```""".format(pprint.pformat(userdata[0], 4).replace("'", '"'), pprint.pformat(userdata[1], 4).replace("'", '"')))
+
 #
 #
 # CHECKER FUNCTIONS
@@ -972,6 +1001,7 @@ async def checkday(ctx):
 
 def isExpectedArgs(types, args, decypherString = True):
     if type(args) == tuple: args = list(args)
+    elif type(args) != list: args = [args]
     if (decypherString):
         # Go through each arg and try to decypher a value from it
         for x in range(0, len(args)):
@@ -981,20 +1011,25 @@ def isExpectedArgs(types, args, decypherString = True):
             if args[x].lower() == "true": args[x] = True; continue
             if args[x].lower() == "false": args[x] = False; continue
 
-    index=-1
-    for kind in types:
-        index+=1
-        # If arg can be multiple types...
-        if (type(kind) == tuple):
-            # if arg is not any of the accepted types
-            ## print("Checking if {0} arg is one of kinds {1}".format(args[index], ", ".join(map(str,kind))))
-            if (not type(args[index]) in kind):
-                return False
-        # If arg can be only one type...
-        else:
-            # if arg is not its required type...
-            ## print("Checking if {0} arg is kind {1}".format(args[index], kind))
-            if (kind != type(args[index])):
+    if type(types) == tuple:
+        index=-1
+        for kind in types:
+            index+=1
+            # If arg can be multiple types...
+            if (type(kind) == tuple):
+                # if arg is not any of the accepted types
+                ## print("Checking if {0} arg is one of kinds {1}".format(args[index], ", ".join(map(str,kind))))
+                if (not type(args[index]) in kind):
+                    return False
+            # If arg can be only one type...
+            else:
+                # if arg is not its required type...
+                ## print("Checking if {0} arg is kind {1}".format(args[index], kind))
+                if (kind != type(args[index])):
+                    return False
+    else:
+        for arg in args:
+            if (not type(arg) == types):
                 return False
     return True
 
@@ -1105,6 +1140,11 @@ def getEmbedData():
         }
     return data
 
+def getUserdata(id):
+    s = getStreaker(id)
+
+    return [vars(s), load_stored_userdata(id)]
+
 
 
 # Backup all of the data
@@ -1187,6 +1227,16 @@ def load_backup():
                                             ))
     except Exception as e:
         print("\n**BACKUP MODIFIED OR CORRUPTED**\n")
+        print(traceback.print_exc())
+
+# Load all of the backup data
+def load_stored_userdata(id):
+    json_data = {}
+    try:
+        with open("data/dailies_data.json", "r") as dailies_data_file:
+            return json.load(dailies_data_file)[str(id)]
+    except Exception as e:
+        print("\n**LOADING STORED USERDATA FAILED**\n")
         print(traceback.print_exc())
 
 @bot.event
