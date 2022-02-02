@@ -115,14 +115,13 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.4"
+    version = "1.64.5"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
 
-:beetle: Fixed error with Vacation Mode. The time between two dates is properly calculated now
-:beetle: Fixed errors to do with using Admin commands in DMs. They have now been disabled due to not being able to regulate them easily there.
+:beetle: Fixed bug calculating number of days between two dates. For real this time
 """
 
     found_update_user = False
@@ -178,7 +177,7 @@ async def processStreakMsg(msg):
             await bot.get_channel(DDISC_CHANNEL_ID).send(":warning: {} ` You need to disable Vacation Mode to continue your streak! Use '!vacation'`".format(msg.author.mention))
             return
 
-        if (dayDifferenceNow(streaker.lastPostTime) < 1 and datetime.utcnow().day == lastDay):
+        if (differenceBetweenDates(streaker.lastPostTime) < 1 and datetime.utcnow().day == lastDay):
             await msg.add_reaction('💯')
             return
         else:
@@ -252,7 +251,7 @@ async def processEndOfDay(msg, test = False):
                     s.name = info.display_name
 
             # if the time since this (Challenge Mode) streaker's last post is more than one day
-            if not s.casual and not s.vacationMode[0] and s.streak != 0 and dayDifferenceNow(s.lastPostTime) > 1:
+            if not s.casual and not s.vacationMode[0] and s.streak != 0 and differenceBetweenDates(s.lastPostTime) > 1:
                 # If this streaker is the rollover-causing author, adjust their post time backward by 1hr so that it doesn't count towards the new day
                 if (s.id == msg.author.id and msg.channel.id == DAILY_CHANNEL_ID): 
                     s.lastPostTime = datetime.utcnow() - timedelta(hours = 1)
@@ -796,6 +795,7 @@ async def casual(ctx):
         s.mercies = 0
         s.streak = 0
         s.weekStreak = 0
+        s.lastPostTime = datetime.utcnow() - timedelta(days=1)
         backup()
 
         if (s.casual):
@@ -844,11 +844,11 @@ async def vacation(ctx):
 
     if s: # If streaker was found
         if not s.vacationMode[0]: # if vacation mode is not on...
-            if dayDifferenceNow(s.vacationMode[1]) > 1: # if vacation mode lastChangeTime is not too recent
+            if timeDifference(s.vacationMode[1]).total_seconds()/3600 > 1: # if vacation mode lastChangeTime is not too recent
                 s.vacationMode = (True, datetime.utcnow())
                 await ctx.send(":white_check_mark: `Vacation Mode ENABLED`")
             else:
-                await ctx.send(":x: `Sorry, you can't change vacation mode for another {}hrs`".format(24-dayDifferenceNow(s.vacationMode[1])*24))
+                await ctx.send(":x: `Sorry, you can't change vacation mode for another {}hrs`".format(24-timeDifference(s.vacationMode[1]).total_seconds()/3600))
         else:
             s.vacationMode = (False, datetime.utcnow())
             await ctx.send(":white_check_mark: `Vacation Mode DISABLED`")
@@ -1016,6 +1016,8 @@ def isExpectedArgs(types, args, decypherString = True):
         index=-1
         for kind in types:
             index+=1
+            # if arg does not exist, break
+            if (index < args.__len__()): break
             # If arg can be multiple types...
             if (type(kind) == tuple):
                 # if arg is not any of the accepted types
@@ -1095,12 +1097,15 @@ async def deleteInteraction(msgs):
     else:
         await msgs.delete()
 
-def dayDifferenceNow(oldTime, newTime=0):
+def timeDifference(oldTime, newTime=0):
     if (oldTime != None):
-        dif = (datetime.utcnow() - oldTime).days
+        dif = (datetime.utcnow() - oldTime)
         return dif
     else:
         return 1
+
+def differenceBetweenDates(oldTime):
+    return (datetime.utcnow().date() - oldTime.date()).days
 
 def getEmbedData():
     try:
