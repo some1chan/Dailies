@@ -122,7 +122,7 @@ async def on_ready():
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
 
-:beetle: Fixed bug calculating number of days between two dates. For real this time
+:beetle: Fixed edge case when the rollover is caused by a streak post. This was previously caught and handled, but other changes caused that to be overridden.
 """
 
     found_update_user = False
