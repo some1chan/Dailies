@@ -8,7 +8,7 @@ from discord.ext.commands import CommandNotFound
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import asyncio
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dttime
 from dateutil import tz
 from calendar import monthrange
 import operator
@@ -55,10 +55,11 @@ class Streaker:
         self.days = days
         self.vacationMode = vacationMode
     
-    def BumpStreak(self):
+    def BumpStreak(self, pushToYesterday=False):
         self.streak += 1
         self.streakAllTime += 1
-        self.lastPostTime = datetime.utcnow()
+        if (not pushToYesterday): self.lastPostTime = datetime.utcnow()
+        else: self.lastPostTime = datetime.combine( (datetime.utcnow() - timedelta(days=1)).date(), dttime.max )
         if (self.streak > self.streakRecord): self.streakRecord = self.streak
 
         if (self.casual):
@@ -115,7 +116,7 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.5"
+    version = "1.64.6"
     send_version_message = False
 
     version_message = """
@@ -177,14 +178,15 @@ async def processStreakMsg(msg):
             await bot.get_channel(DDISC_CHANNEL_ID).send(":warning: {} ` You need to disable Vacation Mode to continue your streak! Use '!vacation'`".format(msg.author.mention))
             return
 
+        pushToYesterday = False
         if (differenceBetweenDates(streaker.lastPostTime) < 1 and datetime.utcnow().day == lastDay):
             await msg.add_reaction('💯')
             return
         else:
-            streaker.lastPostTime = datetime.utcnow() - timedelta(hours = 1)
+            pushToYesterday = True
 
         # Update streak and react
-        streaker.BumpStreak()
+        streaker.BumpStreak(pushToYesterday)
         streaker.AddDay(msg.id)
         await reactToStreak(streaker, msg)
     else:
