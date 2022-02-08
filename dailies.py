@@ -116,14 +116,14 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.6"
+    version = "1.64.7"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
 
 :sparkles: All streaks and Mercy Days have been replenished. Sorry about that.
-:beetle: Fixed all streaks' Last Post Times being set to the day before, leading to the missed day
+:beetle: Fixed all streaks' Last Post Times being set to the day before outside of the proper circumstances, leading to the missed day
 :beetle: Finally fixed Streak Day Total being 1 less than what it should be
 """
 
