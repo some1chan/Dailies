@@ -40,7 +40,7 @@ API = {
 }
 
 class Streaker:
-    def __init__(self, id, name=None, days={}, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=0, mercies=0, casual = False, lowMercyWarn = True, vacationMode = (False, datetime.utcnow()-timedelta(2))):
+    def __init__(self, id, name=None, days={}, lpt=None, streak=1, weekStreak=0, streakRecord=0, streakAllTime=1, mercies=0, casual = False, lowMercyWarn = True, vacationMode = (False, datetime.utcnow()-timedelta(2))):
         self.id = id
         self.name = name
         if (lpt): self.lastPostTime = lpt
@@ -122,7 +122,9 @@ async def on_ready():
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
 
-:beetle: Fixed edge case when the rollover is caused by a streak post. This was previously caught and handled, but other changes caused that to be overridden.
+:sparkles: All streaks and Mercy Days have been replenished. Sorry about that.
+:beetle: Fixed all streaks' Last Post Times being set to the day before, leading to the missed day
+:beetle: Finally fixed Streak Day Total being 1 less than what it should be
 """
 
     found_update_user = False
@@ -182,9 +184,9 @@ async def processStreakMsg(msg):
         if (differenceBetweenDates(streaker.lastPostTime) < 1 and datetime.utcnow().day == lastDay):
             await msg.add_reaction('💯')
             return
-        else:
+        elif datetime.utcnow().day != lastDay:
             pushToYesterday = True
-
+        
         # Update streak and react
         streaker.BumpStreak(pushToYesterday)
         streaker.AddDay(msg.id)
@@ -984,17 +986,23 @@ async def dump_userdata(ctx, user = None):
         await deleteInteraction((msg, ctx.message))
         return
 
+    # post a picture of the user's avatar
+    iconLink = await bot.fetch_user(id); iconLink = str(iconLink.avatar_url)
+    if (iconLink.rfind("?") != -1): i = iconLink.rfind("="); iconLink = iconLink[:i] + "=32" # Set icon to be 32px
+    await ctx.send(iconLink)
+
     userdata = getUserdata(id)
     userdata[0].pop('days', None)
     userdata[1].pop('days', None)
 
-    await ctx.send("""```json
-• USER INSTANCE
+    await ctx.send("""**• USER INSTANCE**
+```json
 {0}
-
-○ STORED USERDATA
+```
+**○ STORED USERDATA**
+```json
 {1}
-```""".format(pprint.pformat(userdata[0], 4).replace("'", '"'), pprint.pformat(userdata[1], 4).replace("'", '"')))
+```""".format(pprint.pformat(userdata[0], 4).replace("'", '"'), pprint.pformat(userdata[1], 4).replace("'", '"'), iconLink))
 
 #
 #
