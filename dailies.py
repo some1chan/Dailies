@@ -1,10 +1,10 @@
 # Dailies bot by Grant Scrits 
 #        @GeekOverdriveUS
 
-import discord
-from discord.ext import commands
-from discord.ext.commands import Bot
-from discord.ext.commands import CommandNotFound
+import nextcord
+from nextcord.ext import commands
+from nextcord.ext.commands import Bot
+from nextcord.ext.commands import CommandNotFound
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import asyncio
 import requests
@@ -35,7 +35,7 @@ STREAKER_NOTIFY_ID = int(os.getenv("STREAKER_NOTIFY_ID"))
 API_HOST = os.getenv("API_HOST", "http://localhost:42069")
 
 API = {
-    "getURL": API_HOST + "/api/v0/discord/embedtemplate",
+    "getURL": API_HOST + "/api/v0/nextcord/embedtemplate",
     "postURL": API_HOST + "/api/v0/dailies/version"
 }
 
@@ -116,15 +116,13 @@ async def on_ready():
 
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.7"
+    version = "1.64.8"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
 
-:sparkles: All streaks and Mercy Days have been replenished. Sorry about that.
-:beetle: Fixed all streaks' Last Post Times being set to the day before outside of the proper circumstances, leading to the missed day
-:beetle: Finally fixed Streak Day Total being 1 less than what it should be
+:sparkles: Migrated to Nextcord
 """
 
     found_update_user = False
@@ -147,7 +145,7 @@ async def on_ready():
 
     print("\nDailies bot at the ready!")
 
-    # await bot.change_presence(activity=discord.Game(name="Maintaining Streaks"))
+    # await bot.change_presence(activity=nextcord.Game(name="Maintaining Streaks"))
 
 
 
@@ -436,7 +434,7 @@ async def sendMilestones(milestones, newMonth):
         # If we have any alerts, checked by seeing that we incremented thisField
         if (thisField > -1):
             embedData = getEmbedData()
-            embeds.append(discord.Embed(color=embedData["color"]))
+            embeds.append(nextcord.Embed(color=embedData["color"]))
             embeds[thisEmbed].set_footer(text="Next Streak Day:", icon_url=embedData["footer"]["icon_url"])
             embeds[thisEmbed].timestamp = end_of_day
 
@@ -444,12 +442,12 @@ async def sendMilestones(milestones, newMonth):
                 if (embedCharacterLength > 5000):
                     embedCharacterLength = 0
                     thisEmbed += 1
-                    embeds.append(discord.Embed(color=getEmbedData()["color"]))
+                    embeds.append(nextcord.Embed(color=getEmbedData()["color"]))
                 embeds[thisEmbed].add_field(name=field["name"], value=field["value"], inline=False)
                 embedCharacterLength += len(field["value"])
         # Thought about adding this as a thumbnail to the first embed, but it's too dang small to notice
         if (amazingMilestone):
-            await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
+            await bot.get_channel(DAILY_CHANNEL_ID).send(file=nextcord.File('assets/amazingStreak.gif'))
         try:
             for e in embeds:
                 # skip empty embeds (shouldn't happen, but it does pretty rarely)
@@ -517,7 +515,7 @@ async def streaks(ctx, extra = None):
     end_of_day = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()) + timedelta(1)
 
     embedData = getEmbedData()
-    embed = discord.Embed(title="STREAKS", description="", color=embedData["color"])
+    embed = nextcord.Embed(title="STREAKS", description="", color=embedData["color"])
     embed.set_footer(text=embedData["footer"]["text"] + "\nNext Streak Day:", icon_url=embedData["footer"]["icon_url"])
     embed.timestamp = end_of_day
 
@@ -529,7 +527,7 @@ async def streaks(ctx, extra = None):
                 break
 
         user = await bot.fetch_user(ctx.message.author.id)
-        embed.set_author(name = user.display_name, icon_url=user.avatar_url)
+        embed.set_author(name = user.display_name, icon_url=user.avatar.url)
 
         if (streakUser):
             # If the user's name has not been added to the class (Done to make compatible with pre 6/3/2020 data backups)
@@ -645,7 +643,7 @@ async def streaks(ctx, extra = None):
 
         try:
             extra = await bot.fetch_user(extra)
-            embed.set_author(name = extra.display_name, icon_url=extra.avatar_url)
+            embed.set_author(name = extra.display_name, icon_url=extra.avatar.url)
 
             streakUser = None
             for s in streakers:
@@ -723,7 +721,7 @@ async def day(ctx, day=None, user=None):
         day = None
     
     try:
-        iconLink = await bot.fetch_user(targetUser.id); iconLink = iconLink.avatar_url
+        iconLink = await bot.fetch_user(targetUser.id); iconLink = iconLink.avatar.url
     except:
         msg = await(ctx.send(":x: `Sorry, I couldn't find this user: {}`".format(targetUser.name)))
         await deleteInteraction((msg, ctx.message))
@@ -750,7 +748,7 @@ async def day(ctx, day=None, user=None):
     end_of_day = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()) + timedelta(1)
 
     embedData = getEmbedData()
-    embed = discord.Embed(title="STREAK DAY {}".format(day), description=streakMessage.content, color=embedData["color"])
+    embed = nextcord.Embed(title="STREAK DAY {}".format(day), description=streakMessage.content, color=embedData["color"])
     embed.set_author(name=targetUser.name, icon_url=iconLink)
     embed.set_footer(text=embedData["footer"]["text"] + "\nNext Streak Day:", icon_url=embedData["footer"]["icon_url"])
     embed.timestamp = end_of_day
@@ -813,7 +811,7 @@ async def casual(ctx):
 
 @bot.command(brief="Toggle streak alerts. This role gets pinged when a new streak day starts")
 async def alert(ctx):
-    notifyRole = discord.utils.get(ctx.message.guild.roles, id=STREAKER_NOTIFY_ID)
+    notifyRole = nextcord.utils.get(ctx.message.guild.roles, id=STREAKER_NOTIFY_ID)
     isAlerter = False
     for role in ctx.message.author.roles:
         if int(role.id) == STREAKER_NOTIFY_ID:
@@ -987,7 +985,7 @@ async def dump_userdata(ctx, user = None):
         return
 
     # post a picture of the user's avatar
-    iconLink = await bot.fetch_user(id); iconLink = str(iconLink.avatar_url)
+    iconLink = await bot.fetch_user(id); iconLink = str(iconLink.avatar.url)
     if (iconLink.rfind("?") != -1): i = iconLink.rfind("="); iconLink = iconLink[:i] + "=32" # Set icon to be 32px
     await ctx.send(iconLink)
 
@@ -1048,7 +1046,7 @@ def isExpectedArgs(types, args, decypherString = True):
 
 async def isAdministrator(ctx):
     if (not ctx.message.guild): msg = await ctx.send(":x: `Sorry, Admin commands cannot be done in a DM`"); deleteInteraction(msg); return False
-    mod_role = discord.utils.get(ctx.message.guild.roles, id=462342299171684364)
+    mod_role = nextcord.utils.get(ctx.message.guild.roles, id=462342299171684364)
 
     if (ctx.message.author.id != 359521958519504926 and mod_role not in ctx.message.author.roles):
         msg = await ctx.send(":x: `You do not have permission to do this`")
@@ -1120,14 +1118,14 @@ def differenceBetweenDates(oldTime):
 def getEmbedData():
     try:
         url = API["getURL"]
-        data = requests.get(url).json()
+        data = requests.get(url, timeout = 0.5).json()
     except Exception:
         print("\n*COULD NOT GET EMBED DATA. USING DEFAULTS...*\n")
         data = {
             "color": 0xD8410A,
             "footer": {
                 "text": "Default",
-                "icon_url": "https://cdn.discordapp.com/avatars/359521958519504926/dd83c78bd736e67c9801c077d99fb845.png"
+                "icon_url": "https://cdn.nextcordapp.com/avatars/359521958519504926/dd83c78bd736e67c9801c077d99fb845.png"
             }
         }
     return data
