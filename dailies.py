@@ -157,7 +157,7 @@ async def on_ready():
 
 @bot.event
 async def on_message(msg):
-    await bot.process_c1ommands(msg)
+    await bot.process_commands(msg)
 
     if (msg.author.id == bot.user.id):
         return
