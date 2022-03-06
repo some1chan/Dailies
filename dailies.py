@@ -32,10 +32,14 @@ DDISC_CHANNEL_ID = int(os.getenv("DDISC_CHANNEL_ID"))
 SPAM_CHANNEL_ID  = int(os.getenv("SPAM_CHANNEL_ID"))
 STREAKER_NOTIFY_ID = int(os.getenv("STREAKER_NOTIFY_ID"))
 
-API_HOST = os.getenv("API_HOST", "http://localhost:42069")
+API_HOST = os.getenv("API_HOST", "")
+disableApi = False
+if (API_HOST == ""):
+    print("API_HOST is empty, disabling API...")
+    disableApi = True
 
 API = {
-    "getURL": API_HOST + "/api/v0/nextcord/embedtemplate",
+    "getURL": API_HOST + "/api/v0/discord/embedtemplate",
     "postURL": API_HOST + "/api/v0/dailies/version"
 }
 
@@ -113,16 +117,15 @@ def main():
 
 @bot.event
 async def on_ready():
-
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.64.8"
+    version = "1.65.0"
     send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
-
-:sparkles: Migrated to Nextcord
+:beetle: Replace accidental nextcord replaces with discord
+:sparkles: Allow API to be disabled
 """
 
     found_update_user = False
@@ -138,12 +141,15 @@ async def on_ready():
 
     # ]-
 
-    url = API["postURL"] + "?version={}".format(version)
-    print(url)
-    try: requests.post(url)
-    except Exception: print("\n*UNABLE TO SEND VERSION TO API*")
+    if (not disableApi):
+        url = API["postURL"] + "?version={}".format(version)
+        print(url)
+        try:
+            requests.post(url)
+        except Exception:
+            print("\n*UNABLE TO SEND VERSION TO API*")
 
-    print("\nDailies bot at the ready!")
+    print("\nDailies bot at the ready! Logged in as {0.user}".format(bot))
 
     # await bot.change_presence(activity=nextcord.Game(name="Maintaining Streaks"))
 
@@ -151,7 +157,7 @@ async def on_ready():
 
 @bot.event
 async def on_message(msg):
-    await bot.process_commands(msg)
+    await bot.process_c1ommands(msg)
 
     if (msg.author.id == bot.user.id):
         return
@@ -433,9 +439,7 @@ async def sendMilestones(milestones, newMonth):
         thisEmbed = 0
         # If we have any alerts, checked by seeing that we incremented thisField
         if (thisField > -1):
-            embedData = getEmbedData()
-            embeds.append(nextcord.Embed(color=embedData["color"]))
-            embeds[thisEmbed].set_footer(text="Next Streak Day:", icon_url=embedData["footer"]["icon_url"])
+            embeds.append(getEmbedTemplate())
             embeds[thisEmbed].timestamp = end_of_day
 
             for field in fields:
@@ -514,9 +518,8 @@ async def streaks(ctx, extra = None):
     today = datetime.utcnow().date()
     end_of_day = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()) + timedelta(1)
 
-    embedData = getEmbedData()
-    embed = nextcord.Embed(title="STREAKS", description="", color=embedData["color"])
-    embed.set_footer(text=embedData["footer"]["text"] + "\nNext Streak Day:", icon_url=embedData["footer"]["icon_url"])
+    embed = getEmbedTemplate()
+    embed.title = "STREAKS"
     embed.timestamp = end_of_day
 
     if (not extra or extra.lower() == "me"):
@@ -747,10 +750,10 @@ async def day(ctx, day=None, user=None):
     today = datetime.utcnow().date()
     end_of_day = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()) + timedelta(1)
 
-    embedData = getEmbedData()
-    embed = nextcord.Embed(title="STREAK DAY {}".format(day), description=streakMessage.content, color=embedData["color"])
+    embed = getEmbedTemplate()
     embed.set_author(name=targetUser.name, icon_url=iconLink)
-    embed.set_footer(text=embedData["footer"]["text"] + "\nNext Streak Day:", icon_url=embedData["footer"]["icon_url"])
+    embed.title = "STREAK DAY {}".format(day)
+    embed.description = streakMessage.content
     embed.timestamp = end_of_day
 
     if (len(streakMessage.attachments) > 0):
@@ -1116,24 +1119,45 @@ def differenceBetweenDates(oldTime):
     return (datetime.utcnow().date() - oldTime.date()).days
 
 def getEmbedData():
+    global disableApi
+
+    useDefaults = disableApi
     try:
-        url = API["getURL"]
-        data = requests.get(url, timeout = 0.5).json()
+        if (not useDefaults):
+            url = API["getURL"]
+            data = requests.get(url, timeout = 0.5).json()
     except Exception:
         print("\n*COULD NOT GET EMBED DATA. USING DEFAULTS...*\n")
+        useDefaults = True
+    
+    if (useDefaults):
         data = {
-            "color": 0xD8410A,
+            "color": 0x2ecc71,
             "footer": {
-                "text": "Default",
-                "icon_url": "https://cdn.nextcordapp.com/avatars/359521958519504926/dd83c78bd736e67c9801c077d99fb845.png"
+                "text": nextcord.Embed.Empty,
+                "icon_url": nextcord.Embed.Empty
             }
         }
+
     return data
 
 def getUserdata(id):
     s = getStreaker(id)
 
     return [vars(s), load_stored_userdata(id)]
+
+
+def getEmbedTemplate():
+    embedData = getEmbedData()
+    
+    RAW_FOOTER_TEXT = embedData["footer"]["text"]
+    RAW_ICON_URL = embedData["footer"]["icon_url"]
+    footerText = "{}\n".format(RAW_FOOTER_TEXT) if RAW_FOOTER_TEXT is not nextcord.Embed.Empty else ""
+    iconUrl= RAW_ICON_URL if RAW_ICON_URL is not nextcord.Embed.Empty else nextcord.Embed.Empty
+
+    embed = nextcord.Embed(color=embedData["color"])
+    embed.set_footer(text=footerText + "Next Streak Day:", icon_url=iconUrl)
+    return embed
 
 
 
