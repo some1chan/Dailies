@@ -1,10 +1,10 @@
 # Dailies bot by Grant Scrits 
 #        @GeekOverdriveUS
 
-import nextcord
-from nextcord.ext import commands
-from nextcord.ext.commands import Bot
-from nextcord.ext.commands import CommandNotFound
+import discord
+from discord.ext import commands
+from discord.ext.commands import Bot
+from discord.ext.commands import CommandNotFound
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import asyncio
 import requests
@@ -119,7 +119,7 @@ def main():
 async def on_ready():
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.65.0"
+    version = "1.65.0b"
     send_version_message = False
 
     version_message = """
@@ -151,7 +151,7 @@ async def on_ready():
 
     print("\nDailies bot at the ready! Logged in as {0.user}".format(bot))
 
-    # await bot.change_presence(activity=nextcord.Game(name="Maintaining Streaks"))
+    # await bot.change_presence(activity=discord.Game(name="Maintaining Streaks"))
 
 
 
@@ -446,12 +446,12 @@ async def sendMilestones(milestones, newMonth):
                 if (embedCharacterLength > 5000):
                     embedCharacterLength = 0
                     thisEmbed += 1
-                    embeds.append(nextcord.Embed(color=getEmbedData()["color"]))
+                    embeds.append(discord.Embed(color=getEmbedData()["color"]))
                 embeds[thisEmbed].add_field(name=field["name"], value=field["value"], inline=False)
                 embedCharacterLength += len(field["value"])
         # Thought about adding this as a thumbnail to the first embed, but it's too dang small to notice
         if (amazingMilestone):
-            await bot.get_channel(DAILY_CHANNEL_ID).send(file=nextcord.File('assets/amazingStreak.gif'))
+            await bot.get_channel(DAILY_CHANNEL_ID).send(file=discord.File('assets/amazingStreak.gif'))
         try:
             for e in embeds:
                 # skip empty embeds (shouldn't happen, but it does pretty rarely)
@@ -530,7 +530,7 @@ async def streaks(ctx, extra = None):
                 break
 
         user = await bot.fetch_user(ctx.message.author.id)
-        embed.set_author(name = user.display_name, icon_url=user.avatar.url)
+        embed.set_author(name = user.display_name, icon_url=user.avatar_url)
 
         if (streakUser):
             # If the user's name has not been added to the class (Done to make compatible with pre 6/3/2020 data backups)
@@ -646,7 +646,7 @@ async def streaks(ctx, extra = None):
 
         try:
             extra = await bot.fetch_user(extra)
-            embed.set_author(name = extra.display_name, icon_url=extra.avatar.url)
+            embed.set_author(name = extra.display_name, icon_url=extra.avatar_url)
 
             streakUser = None
             for s in streakers:
@@ -724,7 +724,7 @@ async def day(ctx, day=None, user=None):
         day = None
     
     try:
-        iconLink = await bot.fetch_user(targetUser.id); iconLink = iconLink.avatar.url
+        iconLink = await bot.fetch_user(targetUser.id); iconLink = iconLink.avatar_url
     except:
         msg = await(ctx.send(":x: `Sorry, I couldn't find this user: {}`".format(targetUser.name)))
         await deleteInteraction((msg, ctx.message))
@@ -814,7 +814,7 @@ async def casual(ctx):
 
 @bot.command(brief="Toggle streak alerts. This role gets pinged when a new streak day starts")
 async def alert(ctx):
-    notifyRole = nextcord.utils.get(ctx.message.guild.roles, id=STREAKER_NOTIFY_ID)
+    notifyRole = discord.utils.get(ctx.message.guild.roles, id=STREAKER_NOTIFY_ID)
     isAlerter = False
     for role in ctx.message.author.roles:
         if int(role.id) == STREAKER_NOTIFY_ID:
@@ -988,7 +988,7 @@ async def dump_userdata(ctx, user = None):
         return
 
     # post a picture of the user's avatar
-    iconLink = await bot.fetch_user(id); iconLink = str(iconLink.avatar.url)
+    iconLink = await bot.fetch_user(id); iconLink = str(iconLink.avatar_url)
     if (iconLink.rfind("?") != -1): i = iconLink.rfind("="); iconLink = iconLink[:i] + "=32" # Set icon to be 32px
     await ctx.send(iconLink)
 
@@ -1049,7 +1049,7 @@ def isExpectedArgs(types, args, decypherString = True):
 
 async def isAdministrator(ctx):
     if (not ctx.message.guild): msg = await ctx.send(":x: `Sorry, Admin commands cannot be done in a DM`"); deleteInteraction(msg); return False
-    mod_role = nextcord.utils.get(ctx.message.guild.roles, id=462342299171684364)
+    mod_role = discord.utils.get(ctx.message.guild.roles, id=462342299171684364)
 
     if (ctx.message.author.id != 359521958519504926 and mod_role not in ctx.message.author.roles):
         msg = await ctx.send(":x: `You do not have permission to do this`")
@@ -1134,8 +1134,8 @@ def getEmbedData():
         data = {
             "color": 0x2ecc71,
             "footer": {
-                "text": nextcord.Embed.Empty,
-                "icon_url": nextcord.Embed.Empty
+                "text": discord.Embed.Empty,
+                "icon_url": discord.Embed.Empty
             }
         }
 
@@ -1152,10 +1152,10 @@ def getEmbedTemplate():
     
     RAW_FOOTER_TEXT = embedData["footer"]["text"]
     RAW_ICON_URL = embedData["footer"]["icon_url"]
-    footerText = "{}\n".format(RAW_FOOTER_TEXT) if RAW_FOOTER_TEXT is not nextcord.Embed.Empty else ""
-    iconUrl= RAW_ICON_URL if RAW_ICON_URL is not nextcord.Embed.Empty else nextcord.Embed.Empty
+    footerText = "{}\n".format(RAW_FOOTER_TEXT) if RAW_FOOTER_TEXT is not discord.Embed.Empty else ""
+    iconUrl= RAW_ICON_URL if RAW_ICON_URL is not discord.Embed.Empty else discord.Embed.Empty
 
-    embed = nextcord.Embed(color=embedData["color"])
+    embed = discord.Embed(color=embedData["color"])
     embed.set_footer(text=footerText + "Next Streak Day:", icon_url=iconUrl)
     return embed
 

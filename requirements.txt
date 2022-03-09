@@ -1,10 +1,10 @@
-aiohttp==3.8.1
+aiohttp==3.7.4
 APScheduler==3.6.3
-async-timeout==4.0.0a3
+async-timeout==3.0.1
 attrs==20.3.0
 certifi==2020.12.5
 chardet==3.0.4
-nextcord==2.0.0a8
+discord.py==1.7.3
 idna==2.10
 multidict==4.7.6
 python-dateutil==2.8.1
@@ -13,5 +13,6 @@ pytz==2020.5
 requests==2.25.1
 six==1.15.0
 tzlocal==2.1
-urllib3==1.26.8
+urllib3==1.25.8
 yarl==1.5.1
+pyee==7.0.1
