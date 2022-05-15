@@ -119,13 +119,13 @@ def main():
 async def on_ready():
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.65.0b"
-    send_version_message = False
+    version = "1.65.1"
+    send_version_message = True
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
-:beetle: Replace accidental nextcord replaces with discord
-:sparkles: Allow API to be disabled
+:adhesive_bandage: Resolved an issue where the Discord API would sometimes fail to add a post reaction when a user updated their streak
+:bulb: Added shorthand for !vacation (!v) and !day (!d)
 """
 
     found_update_user = False
@@ -136,7 +136,7 @@ async def on_ready():
     if (not found_update_user):
         if (send_version_message):
             await bot.get_channel(DAILY_CHANNEL_ID).send(version_message)
-        streakers.append(Streaker(1, version, streak=0))
+        streakers.append(Streaker(-1, version, streak=0))
         backup()
 
     # ]-
@@ -180,13 +180,13 @@ async def processStreakMsg(msg):
         # If this user has already posted today, ignore it
         # Unless this is the rollover-causing streaker (today != lastDay)
         if (streaker.vacationMode[0]):
-            await msg.add_reaction('⚠️')
+            await tryAddReaction(msg, '⚠️')
             await bot.get_channel(DDISC_CHANNEL_ID).send(":warning: {} ` You need to disable Vacation Mode to continue your streak! Use '!vacation'`".format(msg.author.mention))
             return
 
         pushToYesterday = False
         if (differenceBetweenDates(streaker.lastPostTime) < 1 and datetime.utcnow().day == lastDay):
-            await msg.add_reaction('💯')
+            await tryAddReaction(msg, '💯')
             return
         elif datetime.utcnow().day != lastDay:
             pushToYesterday = True
@@ -197,7 +197,7 @@ async def processStreakMsg(msg):
         await reactToStreak(streaker, msg)
     else:
         # If this user was not found, add them to the database
-        await msg.add_reaction('❤️')
+        await tryAddReaction(msg, '❤️')
 
         info = await bot.fetch_user(msg.author.id)
         if len(info.display_name.split()) > 1:
@@ -208,24 +208,23 @@ async def processStreakMsg(msg):
         streakers.append(Streaker(msg.author.id, name, { "1": msg.id })); backup()
         await bot.get_channel(DDISC_CHANNEL_ID).send(":white_check_mark: `{} has started their first streak!`".format(name))
 
-
 async def reactToStreak(s, msg):
     if not s.casual:
         if (s.streak % 30 == 0):
-            await msg.add_reaction('🔥')
+            await tryAddReaction(msg, '🔥')
         elif (s.streak % 7 == 0):
-            await msg.add_reaction('🔱')
+            await tryAddReaction(msg, '🔱')
         elif (s.streak % 3 == 0):
-            await msg.add_reaction('⚜️')
+            await tryAddReaction(msg, '⚜️')
         else:
-            await msg.add_reaction('❤️')
+            await tryAddReaction(msg, '❤️')
     else:
         if s.weekStreak < 3:
-            await msg.add_reaction('⚜️')
+            await tryAddReaction(msg, '⚜️')
         elif s.weekStreak < 5:
-            await msg.add_reaction('🔱')
+            await tryAddReaction(msg, '🔱')
         else:
-            await msg.add_reaction('🔥')
+            await tryAddReaction(msg, '🔥')
 
 
 async def processEndOfDay(msg, test = False):
@@ -505,7 +504,7 @@ async def streak(ctx, extra = None):
     await streaks(ctx, extra)
 
 @bot.command(
-    brief="Show streak stats of the target user",
+    brief="<*target ['me', 'top', 'all']> Show streak stats of the target user",
     description="""(target) : 'target' is optional. If left out, it defaults to you. This value can be entered as 'me', 'top', 'all', a user ID, or nothing. 'me' shows your streak stats. 'top' shows the top three streak groups and the users in them. 'all' shows all of the streak groups.
 
 This command will show you the streak stats of the target user"""
@@ -673,7 +672,7 @@ async def streaks(ctx, extra = None):
                     else: day2 = ""
                     embed.description="Current Month Streak: **{0} {4}**\nCurrent Week Streak: **{1} {5}**\n\n`Highest Streak:` {2}\n`Streak Day Total:` {3}".format(streakUser.streak, streakUser.weekStreak, streakUser.streakRecord, streakUser.streakAllTime, day1, day2)
             else:
-                embed.title=":reminder_ribbon: Clothist Mode"
+                embed.title=":shirt: Clothist Mode"
                 embed.description="This user does not have a streak"
         except Exception as e:
             embed.title=":x: ERROR"
@@ -696,11 +695,14 @@ async def streaks(ctx, extra = None):
     lastCMDMessage = ctx.message
     lastLBMessage = await ctx.send(embed=embed)
 
+@bot.command(brief="Shorthand for !day")
+async def d(ctx, dayNum=None, user=None): await day(ctx, dayNum, user)
 
-@bot.command(brief="Lookup what you posted on a certain day")
+@bot.command(brief="<*number/user, *user> Look up what you posted for a given day of your or another user's streak")
 async def day(ctx, day=None, user=None):
     global lastCMDMessage
     global lastLBMessage
+    randomDay = False
     # Delete previous command responses
     if (lastCMDMessage):
         try:
@@ -721,23 +723,29 @@ async def day(ctx, day=None, user=None):
     # Optionally allow users to get a random post from another user by simply doing '!day <id>'
     elif (day and getStreaker(day)):
         targetUser = getStreaker(day)
-        day = None
+        randomDay = True
     
     try:
         iconLink = await bot.fetch_user(targetUser.id); iconLink = iconLink.avatar_url
     except:
-        msg = await(ctx.send(":x: `Sorry, I couldn't find this user: {}`".format(targetUser.name)))
-        await deleteInteraction((msg, ctx.message))
-        return
+        # default back to the sender if this fails
+        targetUser = getStreaker(ctx.message.author.id)
+        randomDay = False
+        try: iconLink = await bot.fetch_user(targetUser.id); iconLink = iconLink.avatar_url
+        except:
+            msg = await(ctx.send(":x: `Sorry, I couldn't find this user: {}`".format(targetUser.name)))
+            await deleteInteraction((msg, ctx.message))
+            return
 
     streakMessageId = None
     # If the user wants to find a specific streak day...
-    if (day and day.isdigit()):
+    if (day and day.isdigit() and not randomDay):
         for values in targetUser.days.items():
             if day in values:
                 streakMessageId = values[1]
     # Else, grab a random one
     else:
+        print(day, day.isdigit())
         day, streakMessageId = random.choice(list(targetUser.days.items()))
     
     if (not streakMessageId):
@@ -842,6 +850,8 @@ async def togglewarnings(ctx):
     else:
         await ctx.send(":white_check_mark: `You have DISABLED warnings`")
 
+@bot.command(brief="Shorthand for !vacation")
+async def v(ctx): await vacation(ctx)
 
 @bot.command(brief="Toggle vacation mode")
 async def vacation(ctx):
@@ -1065,6 +1075,13 @@ async def isAdministrator(ctx):
 # UTILITY FUNCTIONS
 #
 #
+
+async def tryAddReaction(msg, reaction, tries=0):
+    if tries == 5: return
+    try: await msg.add_reaction(reaction)
+    except:
+        time.sleep(1)
+        tryAddReaction(msg, reaction, tries+1)
 
 def getStreaker(user):
     if (not user):
