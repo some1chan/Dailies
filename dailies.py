@@ -1,14 +1,12 @@
 # Dailies bot by Grant Scrits 
 #        @GeekOverdriveUS
 
-from json.encoder import INFINITY
 import discord
 from discord.ext import commands
 from discord.ext.commands import Bot
 from discord.ext.commands import CommandNotFound
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import asyncio
-from numpy import Infinity
 import requests
 from datetime import datetime, timedelta, time as dttime
 from dateutil import tz
@@ -1134,7 +1132,7 @@ def timeDifference(oldTime, newTime=0):
         return 1
 
 def differenceBetweenDates(oldTime):
-    if not oldTime: return INFINITY
+    if not oldTime: return math.inf
     return (datetime.utcnow().date() - oldTime.date()).days
 
 def getEmbedData():
