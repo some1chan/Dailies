@@ -1,12 +1,14 @@
 # Dailies bot by Grant Scrits 
 #        @GeekOverdriveUS
 
+from json.encoder import INFINITY
 import discord
 from discord.ext import commands
 from discord.ext.commands import Bot
 from discord.ext.commands import CommandNotFound
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import asyncio
+from numpy import Infinity
 import requests
 from datetime import datetime, timedelta, time as dttime
 from dateutil import tz
@@ -119,13 +121,12 @@ def main():
 async def on_ready():
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.65.1"
+    version = "1.65.2"
     send_version_message = True
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
-:adhesive_bandage: Resolved an issue where the Discord API would sometimes fail to add a post reaction when a user updated their streak
-:bulb: Added shorthand for !vacation (!v) and !day (!d)
+:sparkles: Resolved an issue where users who had lost their streak could not restart them until I was turned off and on again.
 """
 
     found_update_user = False
@@ -1133,6 +1134,7 @@ def timeDifference(oldTime, newTime=0):
         return 1
 
 def differenceBetweenDates(oldTime):
+    if not oldTime: return INFINITY
     return (datetime.utcnow().date() - oldTime.date()).days
 
 def getEmbedData():
