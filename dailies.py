@@ -119,12 +119,12 @@ def main():
 async def on_ready():
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.65.2"
-    send_version_message = True
+    version = "1.65.3"
+    send_version_message = False
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
-:sparkles: Resolved an issue where users who had lost their streak could not restart them until I was turned off and on again.
+:sparkles: Fixed an issue in the reaction error handler.
 """
 
     found_update_user = False
