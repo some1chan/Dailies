@@ -260,7 +260,7 @@ async def processEndOfDay(msg, test = False):
             if not s.casual and not s.vacationMode[0] and s.streak != 0 and differenceBetweenDates(s.lastPostTime) > 1:
                 # If this streaker is the rollover-causing author, adjust their post time backward by 1hr so that it doesn't count towards the new day
                 if (s.id == msg.author.id and msg.channel.id == DAILY_CHANNEL_ID): 
-                    s.lastPostTime = datetime.utcnow() - timedelta(hours = 1)
+                    s.lastPostTime = datetime.utcnow() - timedelta(hours = 23)
                 else:
                     specialMilestone = True
                     if (s.mercies == 0):
@@ -1080,7 +1080,7 @@ async def tryAddReaction(msg, reaction, tries=0):
     try: await msg.add_reaction(reaction)
     except:
         time.sleep(1)
-        tryAddReaction(msg, reaction, tries+1)
+        await tryAddReaction(msg, reaction, tries+1)
 
 def getStreaker(user):
     if (not user):
