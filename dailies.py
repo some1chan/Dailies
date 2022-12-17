@@ -119,12 +119,12 @@ def main():
 async def on_ready():
     # This is all a nice simple hack to improvise a version control system out of the streak user system
     # -[
-    version = "1.65.3"
-    send_version_message = False
+    version = "1.65.4"
+    send_version_message = True
 
     version_message = """
 :vertical_traffic_light: :wrench: Bug Fix:
-:sparkles: Fixed an issue in the reaction error handler.
+:sparkles: Milestones will now be ignored if the user is in vacation mode (Thanks Chief) :thumbsup:
 """
 
     found_update_user = False
@@ -277,7 +277,8 @@ async def processEndOfDay(msg, test = False):
                             except Exception as e:
                                 print("\n{} COULDN'T BE MESSAGED! THEIR STREAK IS ABOUT TO EXPIRE!!!\n".format(s.name))
 
-            if (s.streak != 0 and not specialMilestone):
+            # Add challenge & casual milestone if not in vacation mode
+            if (s.streak != 0 and not s.vacationMode[0] and not specialMilestone):
                 if not s.casual:
                     if (s.streak == 1):
                         streakMilestones[s.id] = [Milestone.New, s.streak]
